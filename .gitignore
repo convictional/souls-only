@@ -1,0 +1,11 @@
+# Session state from the remember plugin
+.remember/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Keep the large variable base font out of version control; it is fetched
+# by scripts/fetch_base_font.sh and instanced into base/Inter-Regular.ttf.
+base/Inter-Variable.ttf
