@@ -1,22 +1,20 @@
 """Keyboard-typeable ASCII encoding for Souls Only (Phase 5).
 
-This is a refactor on top of the existing cipher, NOT a second implementation:
-it reuses the fragment routing from cipher.carriers (ALPHABET,
-FRAGMENT_CLASSES, fragment_class_of) and the slicing engine in
-fontbuild.fragments. The only new idea here is the carrier *encoding*: every
-half-glyph is addressed by a pool of short ASCII codes a USB keyboard can type,
-instead of a single PUA codepoint.
+Uses cipher.charset for the full printable charset (letters, digits, symbols,
+space) with a grown ASCII carrier alphabet. The only new idea over the PUA
+cipher is the carrier *encoding*: every half-glyph is addressed by a pool of
+short ASCII codes a USB keyboard can type, instead of a single PUA codepoint.
 
 Model:
-  * Every letter renders as two half-glyphs: a left (shared across a fragment
-    class, else the letter's own) and a right (always the letter's own). This is
-    exactly the fragment routing from carriers.py, extended to all letters.
+  * Every character in the charset renders as two half-glyphs: a left (shared
+    across a fragment class for certain letter groups, else the character's own)
+    and a right (always the character's own).
   * Each half-glyph owns a pool of CODE_LEN-char ASCII codes (homophones). A
-    letter is typed as (random left code) + (random right code) = 2 * CODE_LEN
-    characters, so it looks different in the byte stream every time.
+    character is typed as (random left code) + (random right code) = 2 *
+    CODE_LEN characters, so it looks different in the byte stream every time.
   * The font collapses each code into its half-glyph via a GSUB ligature; the
-    halves tile into the letter. Glyph names are opaque, so a table dump never
-    reveals a code-to-letter mapping.
+    halves tile into the character. Glyph names are opaque, so a table dump
+    never reveals a code-to-character mapping.
 """
 
 from __future__ import annotations
@@ -38,7 +36,6 @@ left_slot = charset.left_slot
 right_slot = charset.right_slot
 half_slots = charset.half_slots
 half_glyph_name = charset.half_glyph_name
-
 
 
 def _all_codes() -> list[str]:

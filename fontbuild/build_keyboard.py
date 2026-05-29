@@ -2,15 +2,17 @@
 
 A refactor that reuses the existing engine:
   * fontbuild.fragments  -> the half-glyph slicing (left_half_glyph /
-    right_half_glyph / own_join / _join_for_class), one half per letter side.
-  * cipher.keyboard      -> the ASCII code allocation and slot routing (which
-    itself reuses cipher.carriers FRAGMENT_CLASSES / fragment_class_of).
+    right_half_glyph / own_join / _join_for_class / space_half_glyphs /
+    pad_glyph), one half per slot across the full charset.
+  * cipher.keyboard      -> the ASCII code allocation and slot routing over
+    the full printable charset (letters, digits, symbols, space).
   * fontbuild.features.compile_features -> FEA compilation.
   * fontbuild.reveal.build_reveal -> the REVL variable axis, applied on top.
 
-Every letter becomes two half-glyphs addressed by 2-char ASCII codes; a GSUB
-ligature collapses each code into its half-glyph; the halves tile into the
-letter. Output: dist/SoulsKeys.ttf (static) and, via reveal, SoulsKeys-VF.ttf.
+Every character becomes two half-glyphs addressed by 2-char ASCII codes; a
+GSUB ligature collapses each code into its half-glyph; the halves tile into
+the character. Output: dist/SoulsKeys.ttf (static) and, via reveal,
+SoulsKeys-VF.ttf.
 """
 
 from __future__ import annotations
@@ -20,16 +22,17 @@ import os
 from fontTools.ttLib import TTFont
 from fontTools.ttLib.tables._g_l_y_f import Glyph
 
+from cipher import charset
 from cipher import keyboard as kb
-from cipher.carriers import ALPHABET, fragment_class_of, FRAGMENT_CLASSES
 from fontbuild.features import compile_features
 from fontbuild.fragments import (
-    CANONICAL,
     _install,
     _join_for_class,
     left_half_glyph,
     own_join,
+    pad_glyph,
     right_half_glyph,
+    space_half_glyphs,
 )
 from fontbuild.reveal import build_reveal
 
@@ -42,13 +45,13 @@ OUT_FEA = os.path.join(ROOT, "dist", "fea", "keyboard.fea")
 FONT_FAMILY = "Souls Keys"
 
 
-def _letter_join(font: TTFont, letter: str) -> int:
-    """The join coordinate for a letter: its class join, or its own."""
-    cls = fragment_class_of(letter)
+def _char_join(font: TTFont, ch: str) -> int:
+    """Join coordinate for a character: its class join, or its own."""
+    cls = charset.class_of(ch)
     if cls is not None:
         return _join_for_class(font["hmtx"], font.getBestCmap(),
-                               FRAGMENT_CLASSES[cls])
-    return own_join(font, letter)
+                               charset.FRAGMENT_CLASSES[cls])
+    return own_join(font, ch)
 
 
 def _add_blank(font: TTFont, name: str) -> None:
@@ -62,31 +65,47 @@ def _add_blank(font: TTFont, name: str) -> None:
 
 
 def _add_half_glyphs(font: TTFont) -> None:
-    """Install one glyph per half-slot, reusing the fragment slicing helpers."""
-    glyf = font["glyf"]
-    for slot in kb.half_slots():
-        name = kb.half_glyph_name(slot)
-        if slot.startswith("cls_"):
-            cls = slot[len("cls_"):]
-            join = _join_for_class(font["hmtx"], font.getBestCmap(),
-                                   FRAGMENT_CLASSES[cls])
-            glyph, adv = left_half_glyph(font, CANONICAL[cls], join)
-        elif slot.startswith("L_"):
-            letter = slot[len("L_"):]
-            glyph, adv = left_half_glyph(font, letter, own_join(font, letter))
-        else:  # "R_<letter>"
-            letter = slot[len("R_"):]
-            glyph, adv = right_half_glyph(font, letter, _letter_join(font, letter))
-        _install(font, name, glyph, adv)  # sets lsb = xMin (avoids half-gap)
+    """Install one glyph per half-slot over the full charset, reusing the slicer.
+
+    Shared classes (lowercase bowl/stem, uppercase bowl) install one left glyph
+    from the canonical character; everything else uses its own halves. Space gets
+    blank halves that tile to the space width.
+    """
+    done: set[str] = set()
+    for ch in charset.CHARSET:
+        ls = charset.left_slot(ch)
+        if ls not in done:
+            done.add(ls)
+            if ls == "SP_L":
+                (glyph, adv), _ = space_half_glyphs(font)
+            elif ls.startswith("cls_"):
+                cls = ls[len("cls_"):]
+                join = _join_for_class(font["hmtx"], font.getBestCmap(),
+                                       charset.FRAGMENT_CLASSES[cls])
+                glyph, adv = left_half_glyph(font, charset.CANONICAL[cls], join)
+            else:  # "L_<ch>"
+                glyph, adv = left_half_glyph(font, ch, own_join(font, ch))
+            _install(font, charset.half_glyph_name(ls), glyph, adv)
+        rs = charset.right_slot(ch)
+        if rs not in done:
+            done.add(rs)
+            if rs == "SP_R":
+                _, (glyph, adv) = space_half_glyphs(font)
+            else:  # "R_<ch>"
+                glyph, adv = right_half_glyph(font, ch, _char_join(font, ch))
+            _install(font, charset.half_glyph_name(rs), glyph, adv)
 
 
 def _add_carriers_and_cmap(font: TTFont) -> None:
     for ch in kb.CODE_ALPHABET:
         _add_blank(font, kb.carrier_glyph_name(ch))
+    pg, padv = pad_glyph()
+    _install(font, kb.carrier_glyph_name(charset.PAD), pg, padv)
     font.setGlyphOrder(list(font["glyf"].glyphOrder))
     for sub in [t for t in font["cmap"].tables if t.isUnicode()]:
         for ch in kb.CODE_ALPHABET:
             sub.cmap[ord(ch)] = kb.carrier_glyph_name(ch)
+        sub.cmap[ord(charset.PAD)] = kb.carrier_glyph_name(charset.PAD)
 
 
 def _generate_fea() -> str:
@@ -127,8 +146,8 @@ def build() -> None:
     font.save(OUT_FONT)
     n_codes = sum(len(c) for c in kb.slot_codes().values())
     print(f"wrote {OUT_FONT}")
-    print(f"  {len(kb.half_slots())} half-glyphs, {n_codes} ASCII codes, "
-          f"{len(ALPHABET)} letters")
+    print(f"  {len(charset.half_slots())} half-glyphs, {n_codes} ASCII codes, "
+          f"{len(charset.CHARSET)} characters")
 
 
 def build_with_reveal() -> None:

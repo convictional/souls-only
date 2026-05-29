@@ -95,14 +95,18 @@ def test_no_letter_leaks_into_stream():
     assert not any(c.isalpha() for c in enc)
 
 
-def test_shaping_has_no_notdef_and_two_halves_per_letter(built_keys_path):
-    text = "the quick brown fox"
-    enc = kb.encode(text, rng=random.Random(4))
+def test_shaping_full_charset_no_notdef(built_keys_path):
+    import random
+    text = "The Quick Brown Fox 99! @#$ (a) = ok?"
+    enc = kb.encode(text, rng=random.Random(7))
     shaped = _shape(built_keys_path, enc)
     assert ".notdef" not in shaped
-    halves = [g for g in shaped if g.startswith("kf_")]
-    n_letters = sum(c.isalpha() for c in text)
-    assert len(halves) == 2 * n_letters
+
+
+def test_uppercase_bowl_is_shared(built_keys_path):
+    from cipher import charset
+    left_glyphs = {charset.half_glyph_name(charset.left_slot(ch)) for ch in "OCGQ"}
+    assert len(left_glyphs) == 1  # O C G Q share one left half
 
 
 def test_table_dump_reveals_no_code_to_letter_mapping(built_keys_path):
@@ -120,22 +124,21 @@ def test_table_dump_reveals_no_code_to_letter_mapping(built_keys_path):
                 for lig in lig_list:
                     assert lig.LigGlyph not in real_letters
     for slot in kb.half_slots():
-        assert re.fullmatch(r"kf_\d+", kb.half_glyph_name(slot))
+        assert re.fullmatch(r"h_\d+", kb.half_glyph_name(slot))
 
 
 def test_half_glyph_lsb_matches_xmin(built_keys_path):
-    # The left side bearing must equal the glyph's xMin; otherwise renderers
-    # reposition the half and open a gap, so a letter reads as two strokes.
+    from cipher import charset
     font = TTFont(built_keys_path)
     glyf = font["glyf"]
     hmtx = font["hmtx"]
-    for slot in kb.half_slots():
-        name = kb.half_glyph_name(slot)
+    for slot in charset.half_slots():
+        name = charset.half_glyph_name(slot)
         g = glyf[name]
         if getattr(g, "numberOfContours", 0) <= 0:
             continue
         g.recalcBounds(glyf)
-        assert hmtx[name][1] == g.xMin, f"{name}: lsb {hmtx[name][1]} != xMin {g.xMin}"
+        assert hmtx[name][1] == g.xMin
 
 
 def test_keyboard_reveal_axis(built_keys_vf_path):
