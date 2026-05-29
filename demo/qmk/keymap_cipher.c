@@ -71,3 +71,16 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     set_weak_mods(saved_weak);
     return false;              // we handled it; suppress the original key
 }
+
+#ifdef RGB_MATRIX_ENABLE
+// While cipher mode is on, flood the whole board blue as a "Souls mode" tell.
+// Returning false skips the keyboard's own indicator overlay so the blue is
+// solid; when cipher is off we return true and normal RGB resumes.
+bool rgb_matrix_indicators_user(void) {
+    if (cipher_on) {
+        rgb_matrix_set_color_all(0, 0, 255);   // R, G, B -> blue
+        return false;
+    }
+    return true;
+}
+#endif

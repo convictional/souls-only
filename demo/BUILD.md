@@ -90,40 +90,73 @@ renders correctly, just without homophone variation.
 
 ### B2. Full alphabet: custom QMK (the real demo)
 
-1. Install QMK tooling and Keychron's fork (the Max boards are not in mainline QMK):
-   ```
-   # qmk CLI: https://docs.qmk.fm/#/newbs_getting_started
-   git clone https://github.com/Keychron/qmk_firmware.git
-   cd qmk_firmware
-   ```
-   Find the V1 Max keyboard under `keyboards/keychron/v1/v1_max` (check Keychron's
-   QMK guide for the exact branch if the folder is missing on the default branch:
-   https://www.keychron.com/blogs/news/how-to-set-up-qmk-environment-on-keychron-keyboards ).
+This was done and flashed successfully on 2026-05-29. The exact working recipe on
+macOS (Apple Silicon), with the gotchas that cost time:
 
-2. Copy the default keymap to a new `cipher` keymap, then add the cipher logic:
+1. Keychron's fork (the Max boards are NOT in mainline QMK). The V1 Max lives at
+   `keyboards/keychron/v1_max/ansi_encoder` (NOT `keychron/v1/v1_max/...`), and it
+   is present on the fork's default branch (`2025q3`).
    ```
-   cp -r keyboards/keychron/v1/v1_max/ansi_encoder/keymaps/default \
-         keyboards/keychron/v1/v1_max/ansi_encoder/keymaps/cipher
-   cp <this-repo>/demo/qmk/cipher_table.h \
-         keyboards/keychron/v1/v1_max/ansi_encoder/keymaps/cipher/
+   git clone --depth 1 https://github.com/Keychron/qmk_firmware.git ~/qmk_firmware
+   git -C ~/qmk_firmware submodule update --init --recursive --depth 1   # large (ChibiOS)
    ```
-   Then merge `demo/qmk/keymap_cipher.c` into that keymap's `keymap.c`:
-   add the `#include "cipher_table.h"`, the `static bool cipher_on` / `rng_seeded`
-   state, and the `process_record_user` body (it emits a random left code then a
-   random right code per letter). If the default `keymap.c` already defines
-   `process_record_user`, keep its body and add ours at the top.
 
-3. Compile and flash:
+2. Toolchain. The Homebrew `qmk` formula installs a BROKEN python interpreter
+   (its `qmk` shim points at a missing path) and pins `arm-none-eabi-gcc@8` /
+   `avr-gcc@8` behind extra taps. What actually works:
    ```
-   qmk compile -kb keychron/v1/v1_max/ansi_encoder -km cipher
+   brew tap osx-cross/arm && brew tap osx-cross/avr
+   brew install qmk/qmk/qmk          # pulls arm-none-eabi-gcc@8 + binutils + dfu-util
+   <repo>/.venv/bin/pip install qmk  # use a CLEAN python for the qmk CLI, not brew's
+   <repo>/.venv/bin/qmk config user.qmk_home="$HOME/qmk_firmware"
    ```
-   Put the board into bootloader (Keychron: usually a reset button on the PCB, or
-   the documented Fn combo), then flash with **QMK Toolbox** or `qmk flash`.
+   `arm-none-eabi-gcc@8` and `arm-none-eabi-binutils` are keg-only, so put their
+   Cellar `bin` dirs on PATH for the compile:
+   ```
+   export PATH="/opt/homebrew/Cellar/arm-none-eabi-gcc@8/8.5.0_2/bin:/opt/homebrew/Cellar/arm-none-eabi-binutils/2.41/bin:/opt/homebrew/bin:$PATH"
+   ```
 
-4. Test: plug in wired, press **Right Ctrl** to turn cipher mode ON, open
-   `demo/index.html` (Simulate off), and type. Letters read correctly; the raw
-   pane shows garbage. Press Right Ctrl again to type normally (passwords, the URL
-   bar, etc).
+3. Create the `cipher` keymap from `default` and drop in the generated table:
+   ```
+   cd ~/qmk_firmware/keyboards/keychron/v1_max/ansi_encoder/keymaps
+   cp -r default cipher
+   cp <repo>/demo/qmk/cipher_table.h cipher/
+   ```
+   Then append the cipher block from `demo/qmk/keymap_cipher.c` (the
+   `#include "cipher_table.h"`, the `cipher_on` / `kb_emitting` / `rng_seeded`
+   state, `emit_char`, and `process_record_user`) to the END of `cipher/keymap.c`,
+   keeping the existing `keymaps[]` and `encoder_map[]`. No merge conflict: the
+   default keymap does NOT define `process_record_user`, and Keychron's
+   `keychron_task.c` calls `process_record_user` BEFORE `process_record_keychron`,
+   so returning `true` for non-ciphered keys leaves all Fn keys (BT, RGB, knob,
+   battery) working. No `rules.mk` needed.
+
+4. Compile and flash (MCU is STM32F401, bootloader `stm32-dfu`, flashed by
+   `dfu-util` which `qmk flash` calls automatically):
+   ```
+   <repo>/.venv/bin/qmk compile -kb keychron/v1_max/ansi_encoder -km cipher
+   <repo>/.venv/bin/qmk flash   -kb keychron/v1_max/ansi_encoder -km cipher
+   ```
+   `qmk flash` polls for the bootloader, so start it, THEN enter DFU: board in
+   WIRED mode (data cable, side toggle on Cable), pop the Spacebar keycap, hold the
+   PCB reset button while plugging in (~3 s). It can take 1-2 minutes to detect.
+
+   If `qmk flash` throws a transient USB error mid-write (`ERASE_PAGE get_status`
+   or `LIBUSB_ERROR_OVERFLOW`) the board stays in DFU and is NOT bricked (the
+   bootloader region is protected). The reliable fallback is to call dfu-util
+   directly with an explicit device id and a clean leave (this is what finally
+   stuck on 2026-05-29):
+   ```
+   dfu-util -a 0 -d 0483:df11 -s 0x08000000:leave -D \
+     ~/qmk_firmware/.build/keychron_v1_max_ansi_encoder_cipher.bin
+   ```
+   If it keeps erroring, unplug and re-enter DFU for a clean USB state, and try a
+   different cable/port (avoid hubs).
+
+5. Test: press **Right Ctrl** to toggle cipher mode ON (it is the key just RIGHT
+   of **Fn** on the bottom row, between Fn and the arrows; do NOT grab Left Ctrl
+   by reflex). Open `demo/index.html` (Simulate OFF), type: letters read correctly,
+   the raw pane shows garbage. Right Ctrl again returns to a normal keyboard.
 
 ### Recovery
 If anything goes wrong, reflash Keychron's factory firmware (from their QMK guide
