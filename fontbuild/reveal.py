@@ -72,9 +72,9 @@ def _scatter_simple(glyph, glyf, rng, dx, dy):
     glyph.recalcBounds(glyf)
 
 
-def _make_scattered(font: TTFont) -> TTFont:
+def _make_scattered(aligned_path: str) -> TTFont:
     """Return a copy of the aligned font with every inked glyph scattered."""
-    scattered = TTFont(ALIGNED)  # reload a clean copy from disk
+    scattered = TTFont(aligned_path)  # reload a clean copy from disk
     glyf = scattered["glyf"]
     rng = random.Random(_SEED)
     for name in scattered.getGlyphOrder():
@@ -91,14 +91,15 @@ def _make_scattered(font: TTFont) -> TTFont:
     return scattered
 
 
-def build_reveal() -> None:
-    aligned = TTFont(ALIGNED)
-    scattered = _make_scattered(aligned)
+def build_reveal(aligned_path: str = ALIGNED, out_vf: str = OUT_VF) -> None:
+    """Wrap any static cipher font in the REVL scatter-to-align variable axis."""
+    aligned = TTFont(aligned_path)
+    scattered = _make_scattered(aligned_path)
 
     scattered_path = os.path.join(ROOT, "dist", "_master_scattered.ttf")
-    aligned_path = os.path.join(ROOT, "dist", "_master_aligned.ttf")
+    master_aligned_path = os.path.join(ROOT, "dist", "_master_aligned.ttf")
     scattered.save(scattered_path)
-    aligned.save(aligned_path)
+    aligned.save(master_aligned_path)
 
     doc = DesignSpaceDocument()
     axis = AxisDescriptor()
@@ -115,15 +116,15 @@ def build_reveal() -> None:
     doc.addSource(src_scatter)
 
     src_aligned = SourceDescriptor()
-    src_aligned.path = aligned_path
+    src_aligned.path = master_aligned_path
     src_aligned.location = {"Reveal": _AXIS_MAX}
     doc.addSource(src_aligned)
 
     vf, _, _ = varlib_build(doc)
-    vf.save(OUT_VF)
+    vf.save(out_vf)
     os.remove(scattered_path)
-    os.remove(aligned_path)
-    print(f"wrote {OUT_VF}")
+    os.remove(master_aligned_path)
+    print(f"wrote {out_vf}")
     print(f"  axis {_AXIS_TAG} 0..{_AXIS_MAX}, default 0 (scattered)")
 
 
