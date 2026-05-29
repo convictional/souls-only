@@ -6,11 +6,11 @@ from cipher.encode import encode
 
 def test_each_letter_encodes_to_one_of_its_homophone_pairs():
     pairs = carriers.homophone_pairs()
-    # No noise, deterministic rng: every 'e' maps to one of e's 6 pairs.
+    # 't' is ligature-routed (not a fragment letter) and has 6 homophones.
     rng = random.Random(0)
-    out = encode("e", rng=rng, noise_density=0.0)
+    out = encode("t", rng=rng, noise_density=0.0)
     cp1, cp2 = ord(out[0]), ord(out[1])
-    assert (cp1, cp2) in pairs["e"]
+    assert (cp1, cp2) in pairs["t"]
 
 
 def test_no_noise_means_two_carriers_per_letter():
@@ -19,11 +19,11 @@ def test_no_noise_means_two_carriers_per_letter():
 
 
 def test_homophones_vary_across_occurrences():
-    # 'e' has 6 homophones; over many encodes we should see more than one pair.
+    # 't' (ligature-routed) has 6 homophones; many encodes show more than one.
     rng = random.Random(2)
     seen = set()
     for _ in range(50):
-        out = encode("e", rng=rng, noise_density=0.0)
+        out = encode("t", rng=rng, noise_density=0.0)
         seen.add((ord(out[0]), ord(out[1])))
     assert len(seen) > 1  # not always the same homophone
 

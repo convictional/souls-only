@@ -12,7 +12,13 @@ from __future__ import annotations
 import random
 import sys
 
-from cipher.carriers import homophone_pairs, noise_codepoints
+from cipher.carriers import (
+    fragment_class_of,
+    homophone_pairs,
+    left_carriers,
+    noise_codepoints,
+    right_carriers,
+)
 
 
 def _emit_noise(out: list[str], rng: random.Random, noise_density: float,
@@ -45,12 +51,21 @@ def encode(text: str, rng: random.Random | None = None,
     out: list[str] = []
     prev_was_letter = False
     for ch in text:
+        cls = fragment_class_of(ch)
+        if cls is not None:
+            # Fragment-routed letter: emit (shared left carrier, right carrier).
+            if prev_was_letter:
+                _emit_noise(out, rng, noise_density, noise_pool)
+            out.append(chr(rng.choice(left_carriers(cls))))
+            out.append(chr(rng.choice(right_carriers(ch))))
+            prev_was_letter = True
+            continue
         plist = pairs.get(ch)
         if plist is None:
             out.append(ch)
             prev_was_letter = False
             continue
-        # Noise goes BETWEEN letters, never inside a pair.
+        # Ligature-routed letter. Noise goes BETWEEN letters, never inside a pair.
         if prev_was_letter:
             _emit_noise(out, rng, noise_density, noise_pool)
         first, second = rng.choice(plist)

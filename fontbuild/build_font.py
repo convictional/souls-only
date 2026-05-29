@@ -6,8 +6,14 @@ import os
 
 from fontTools.ttLib import TTFont
 
-from cipher.carriers import all_carrier_codepoints, homophone_pairs, noise_codepoints
+from cipher.carriers import (
+    all_carrier_codepoints,
+    fragment_carrier_codepoints,
+    homophone_pairs,
+    noise_codepoints,
+)
 from fontbuild.features import compile_features, generate_fea, populate_cmap
+from fontbuild.fragments import add_fragment_glyphs
 from fontbuild.glyphs import (
     add_blank_carrier_glyphs,
     add_homophone_glyphs,
@@ -38,6 +44,7 @@ def build() -> None:
     add_blank_carrier_glyphs(font)
     add_noise_glyphs(font)
     add_homophone_glyphs(font)
+    add_fragment_glyphs(font)
     populate_cmap(font)
 
     fea = generate_fea(font)
@@ -53,7 +60,9 @@ def build() -> None:
     n_pairs = sum(len(v) for v in homophone_pairs().values())
     print(f"wrote {OUT_FONT}")
     print(f"  {len(all_carrier_codepoints())} carrier glyphs, "
-          f"{len(noise_codepoints())} noise glyphs, {n_pairs} ligature rules")
+          f"{len(noise_codepoints())} noise glyphs, "
+          f"{len(fragment_carrier_codepoints())} fragment carriers, "
+          f"{n_pairs} ligature rules")
 
 
 if __name__ == "__main__":

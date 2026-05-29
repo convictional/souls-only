@@ -14,10 +14,10 @@ def test_noise_is_dropped_on_decode(built_font_path):
 
 
 def test_carrier_frequency_is_flatter_than_letters(built_font_path):
-    # Encoding many 'e's spreads across e's 6 homophone pairs rather than one.
+    # 't' is ligature-routed; encoding many 't's spreads across its 6 homophones.
     rng = random.Random(12)
     firsts = set()
     for _ in range(200):
-        out = encode("e", rng=rng, noise_density=0.0)
+        out = encode("t", rng=rng, noise_density=0.0)
         firsts.add(ord(out[0]))
-    assert len(firsts) == 6  # all 6 homophones of 'e' get used
+    assert len(firsts) == 6  # all 6 homophones of 't' get used

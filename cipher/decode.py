@@ -22,6 +22,11 @@ import sys
 
 from fontTools.ttLib import TTFont
 
+from cipher.carriers import (
+    left_carrier_to_class,
+    right_carrier_to_letter,
+)
+
 _ALT_SUFFIX = re.compile(r"^(.*)\.alt\d+$")
 
 
@@ -69,16 +74,27 @@ def _analyze_font(font_path: str):
                     if letter is not None:
                         pair_to_letter[(cp1, cp2)] = letter
 
-    # A PUA codepoint whose glyph is never a ligature input is noise.
+    # Noise is a PUA codepoint whose glyph is a blank (zero contours) and never
+    # a ligature input. The blank check excludes fragment glyphs, which have
+    # contours, so fragment carriers are not mistaken for noise and dropped.
+    glyf = font["glyf"]
     noise_codepoints = {
         cp for cp, g in cmap.items()
-        if 0xE000 <= cp <= 0xF8FF and g not in ligature_input_glyphs
+        if 0xE000 <= cp <= 0xF8FF
+        and g not in ligature_input_glyphs
+        and glyf[g].numberOfContours == 0
     }
     return pair_to_letter, noise_codepoints
 
 
 def decode(encoded: str, font_path: str) -> str:
     pair_to_letter, noise_codepoints = _analyze_font(font_path)
+    # Fragment reversal uses the cipher tables, not the font: the font
+    # deliberately contains no fragment-to-letter mapping (that is the whole
+    # point of the fragment scheme). The right carrier identifies the letter.
+    fragment_left = set(left_carrier_to_class())
+    right_to_letter = right_carrier_to_letter()
+
     # Drop noise first; it is only ever placed between letters, never inside a
     # pair, so removing it leaves the carrier pairs contiguous.
     cleaned = [c for c in encoded if ord(c) not in noise_codepoints]
@@ -87,6 +103,14 @@ def decode(encoded: str, font_path: str) -> str:
     i, n = 0, len(cleaned)
     while i < n:
         cp = ord(cleaned[i])
+        # Fragment pair: a shared-left carrier followed by a right carrier.
+        if cp in fragment_left and i + 1 < n:
+            letter = right_to_letter.get(ord(cleaned[i + 1]))
+            if letter is not None:
+                out.append(letter)
+                i += 2
+                continue
+        # Ligature pair, reversed from the font's GSUB table.
         if 0xE000 <= cp <= 0xF8FF and i + 1 < n:
             pair = (cp, ord(cleaned[i + 1]))
             letter = pair_to_letter.get(pair)

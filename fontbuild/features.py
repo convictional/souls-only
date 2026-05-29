@@ -14,11 +14,17 @@ from fontTools.feaLib.builder import addOpenTypeFeatures
 from fontTools.ttLib import TTFont
 
 from cipher.carriers import (
+    FRAGMENT_CLASSES,
     all_carrier_codepoints,
     carrier_glyph_name,
+    fragment_letters,
     homophone_pairs,
+    left_carriers,
+    left_fragment_glyph_name,
     noise_codepoints,
     noise_glyph_name,
+    right_carriers,
+    right_fragment_glyph_name,
 )
 
 
@@ -33,6 +39,17 @@ def populate_cmap(font: TTFont) -> None:
             sub.cmap[cp] = carrier_glyph_name(cp)
         for cp in noise_codepoints():
             sub.cmap[cp] = noise_glyph_name(cp)
+        # Fragment carriers map straight to fragment glyphs. There is NO GSUB
+        # rule for these: the tiling happens purely by adjacency in layout, so
+        # the tables never document the fragment-to-letter mapping.
+        for cls in FRAGMENT_CLASSES:
+            lname = left_fragment_glyph_name(cls)
+            for cp in left_carriers(cls):
+                sub.cmap[cp] = lname
+        for letter in fragment_letters():
+            rname = right_fragment_glyph_name(letter)
+            for cp in right_carriers(letter):
+                sub.cmap[cp] = rname
 
 
 def generate_fea(font: TTFont) -> str:
