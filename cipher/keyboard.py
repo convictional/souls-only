@@ -23,38 +23,27 @@ from __future__ import annotations
 
 import random
 
-from cipher.carriers import ALPHABET, fragment_class_of
+from cipher import charset
 
-CODE_ALPHABET = "!#$%&*+=?@23456789"  # symbols + digits: typeable, noisy
+# Carrier alphabet: the 10 digits plus the ASCII symbols EXCEPT " and \ (those
+# would need escaping in the generated C and JS; \ is reserved as the pad char).
+# 40 characters -> 1600 two-char codes, covering ~178 slots x HOMOPHONES.
+CODE_ALPHABET = charset.DIGITS + "".join(
+    c for c in charset.SYMBOLS if c not in ('"', "\\")
+)
 CODE_LEN = 2
 HOMOPHONES = 4  # interchangeable codes per half-glyph
 
+left_slot = charset.left_slot
+right_slot = charset.right_slot
+half_slots = charset.half_slots
+half_glyph_name = charset.half_glyph_name
 
-def left_slot(letter: str) -> str:
-    """Left half-glyph identity: shared per fragment class, else the letter's own."""
-    cls = fragment_class_of(letter)
-    return f"cls_{cls}" if cls else f"L_{letter}"
-
-
-def right_slot(letter: str) -> str:
-    return f"R_{letter}"
-
-
-def half_slots() -> list[str]:
-    """All distinct half-glyph slots, stable order: left slots then right slots."""
-    lefts: list[str] = []
-    seen: set[str] = set()
-    for ch in ALPHABET:
-        s = left_slot(ch)
-        if s not in seen:
-            seen.add(s)
-            lefts.append(s)
-    return lefts + [right_slot(ch) for ch in ALPHABET]
-
-
-def half_glyph_name(slot: str) -> str:
-    """Opaque glyph name for a half-glyph slot (no letter leaked)."""
-    return f"kf_{half_slots().index(slot)}"
+# Compatibility shim: encode/decode below still operate on lowercase-only text
+# and reference the old import names. The next task rewrites them; until then
+# keep them importable against the full charset module.
+ALPHABET = charset.LOWER
+fragment_class_of = charset.class_of
 
 
 def _all_codes() -> list[str]:

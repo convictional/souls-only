@@ -34,6 +34,23 @@ def test_codes_are_two_chars_from_the_alphabet():
             assert all(c in kb.CODE_ALPHABET for c in code)
 
 
+def test_carrier_alphabet_is_40_safe_chars():
+    assert len(kb.CODE_ALPHABET) == 40
+    assert '"' not in kb.CODE_ALPHABET
+    assert "\\" not in kb.CODE_ALPHABET
+
+
+def test_code_space_covers_all_slots():
+    from cipher import charset
+    slots = charset.half_slots()
+    pools = kb.slot_codes()
+    assert set(pools) == set(slots)
+    need = len(slots) * kb.HOMOPHONES
+    assert need <= len(kb.CODE_ALPHABET) ** kb.CODE_LEN
+    all_codes = [c for pool in pools.values() for c in pool]
+    assert len(all_codes) == len(set(all_codes))
+
+
 def test_roundtrip_pure_cipher():
     for s in SAMPLES:
         enc = kb.encode(s, rng=random.Random(1))
