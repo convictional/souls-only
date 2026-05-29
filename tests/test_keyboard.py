@@ -62,7 +62,7 @@ def test_roundtrip_pure_cipher():
 
 def test_roundtrip_with_spaces_and_newlines():
     import random
-    text = "Hello World\nLine two here\nThird 99!"
+    text = "Hello World\nLine two\\here\nThird 99! a\\b"
     enc = kb.encode(text, rng=random.Random(2))
     assert kb.decode(enc) == text
 
@@ -106,12 +106,15 @@ def test_shaping_full_charset_no_notdef(built_keys_path):
 def test_uppercase_bowl_is_shared(built_keys_path):
     from cipher import charset
     left_glyphs = {charset.half_glyph_name(charset.left_slot(ch)) for ch in "OCGQ"}
-    assert len(left_glyphs) == 1  # O C G Q share one left half
+    assert len(left_glyphs) == 1  # O C G Q share one left half-glyph
+    shared = next(iter(left_glyphs))
+    font = TTFont(built_keys_path)
+    assert shared in font["glyf"]  # and that shared glyph is in the built font
 
 
 def test_table_dump_reveals_no_code_to_letter_mapping(built_keys_path):
     font = TTFont(built_keys_path)
-    # GSUB only ligates code carriers into opaque half-glyphs (kf_*), never a
+    # GSUB only ligates code carriers into opaque half-glyphs (h_<n>), never a
     # real letter glyph. Glyph names are opaque.
     gsub = font["GSUB"]
     real_letters = set("abcdefghijklmnopqrstuvwxyz")

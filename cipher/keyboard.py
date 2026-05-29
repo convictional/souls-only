@@ -1,4 +1,4 @@
-"""Keyboard-typeable ASCII encoding for Souls Only (Phase 5).
+"""Keyboard-typeable ASCII encoding for Souls Only (charset extension).
 
 Uses cipher.charset for the full printable charset (letters, digits, symbols,
 space) with a grown ASCII carrier alphabet. The only new idea over the PUA

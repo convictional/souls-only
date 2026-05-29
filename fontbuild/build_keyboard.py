@@ -1,4 +1,4 @@
-"""Build the keyboard-typeable Souls Only font (Phase 5).
+"""Build the keyboard-typeable Souls Only font (charset extension).
 
 A refactor that reuses the existing engine:
   * fontbuild.fragments  -> the half-glyph slicing (left_half_glyph /
