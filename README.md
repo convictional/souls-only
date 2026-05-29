@@ -25,19 +25,25 @@ project decouples them:
 Because two codepoints collapse into one glyph, the stored codepoint count and
 the rendered glyph count deliberately diverge.
 
-## Current status: Phase 1 complete
+## Current status: Phase 2 complete
 
-The smallest end-to-end loop from the brief is working and verified:
+The codepoint/glyph decoupling plus homophones and zero-width noise are working
+and verified:
 
-- lowercase a-z, one deterministic PUA pair per letter
-- spaces and punctuation pass through unchanged (not yet obfuscated)
-- encoder, font builder, and a font-only decoder all agree
-- verified in a browser: a human reads the plaintext; page-text extraction of
-  the rendered block yields only PUA noise
+- lowercase a-z, with frequency-tiered homophones (6 carriers for `e t a o i n s`,
+  4 for `r h l d c u`, 2 for `m f p g w y b`, 1 for `v k x j q z`)
+- homophones are realized as distinct glyph IDs with identical outlines, so the
+  rendered image is unchanged while carrier frequency is flattened
+- the encoder picks a random homophone per letter and sprinkles zero-width noise
+  codepoints between letters (never inside a pair)
+- the font-only decoder reverses homophone duplicates by glyph name and drops
+  noise, and round-trips arbitrary random encoded streams back to plaintext
+- spaces and punctuation still pass through unchanged
 
-Not yet implemented (next milestones): multiple homophonic pairs per letter with
-random selection, zero-width noise injection, positional abuse, and full
-case/digit/punctuation coverage. See the open questions in the brief.
+Not yet implemented (next phases): shared-ambiguous half-letter fragments
+(Phase 3), the in-font scatter-to-align reveal on a variable axis (Phase 4), and
+full case/digit/punctuation coverage. See the integrated design spec under
+`docs/superpowers/specs/`.
 
 ## Layout
 
