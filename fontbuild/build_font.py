@@ -6,9 +6,13 @@ import os
 
 from fontTools.ttLib import TTFont
 
-from cipher.carriers import all_carrier_codepoints, homophone_pairs
+from cipher.carriers import all_carrier_codepoints, homophone_pairs, noise_codepoints
 from fontbuild.features import compile_features, generate_fea, populate_cmap
-from fontbuild.glyphs import add_blank_carrier_glyphs
+from fontbuild.glyphs import (
+    add_blank_carrier_glyphs,
+    add_homophone_glyphs,
+    add_noise_glyphs,
+)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BASE_FONT = os.path.join(ROOT, "base", "Jost-Regular.ttf")
@@ -32,6 +36,8 @@ def build() -> None:
     font = TTFont(BASE_FONT)
 
     add_blank_carrier_glyphs(font)
+    add_noise_glyphs(font)
+    add_homophone_glyphs(font)
     populate_cmap(font)
 
     fea = generate_fea(font)
@@ -44,10 +50,10 @@ def build() -> None:
 
     os.makedirs(os.path.dirname(OUT_FONT), exist_ok=True)
     font.save(OUT_FONT)
-    print(f"wrote {OUT_FONT}")
     n_pairs = sum(len(v) for v in homophone_pairs().values())
+    print(f"wrote {OUT_FONT}")
     print(f"  {len(all_carrier_codepoints())} carrier glyphs, "
-          f"{n_pairs} ligature rules")
+          f"{len(noise_codepoints())} noise glyphs, {n_pairs} ligature rules")
 
 
 if __name__ == "__main__":
