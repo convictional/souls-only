@@ -24,3 +24,7 @@ dist/SoulsKeys.ttf
 dist/SoulsKeys-VF.ttf
 dist/keys.html
 dist/fea/keyboard.fea
+demo/cipher_table.js
+demo/SoulsKeys-VF.ttf
+demo/qmk/cipher_table.h
+demo/__pycache__/
