@@ -25,7 +25,7 @@ project decouples them:
 Because two codepoints collapse into one glyph, the stored codepoint count and
 the rendered glyph count deliberately diverge.
 
-## Current status: milestone 1 (closed)
+## Current status: Phase 1 complete
 
 The smallest end-to-end loop from the brief is working and verified:
 
@@ -42,17 +42,17 @@ case/digit/punctuation coverage. See the open questions in the brief.
 ## Layout
 
 ```
-font-cipher-brief.md     the design brief (source of intent)
-src/cipher.py            the mapping tables: the one shared source of truth
-src/encode.py            plaintext  -> PUA codepoint stream
-src/build_font.py        base font + cipher.py -> build/SoulsOnly.ttf
-src/decode.py            font tables -> plaintext (test oracle / "the adversary")
-test/roundtrip.py        encode -> decode -> assert equality, on sample texts
-test/make_preview.py     generate test/preview.html for a browser
-base/Inter-Regular.ttf   instanced OFL base font (glyph outlines)
-build/SoulsOnly.ttf      the built cipher font
-build/fea/cipher.fea     the generated OpenType feature file (inspectable)
-scripts/fetch_base_font.sh  re-fetch and instance the base font
+docs/superpowers/      design spec and implementation plans
+cipher/carriers.py     carrier allocation: the one shared source of truth
+cipher/encode.py       plaintext -> carrier codepoint stream
+cipher/decode.py       font tables -> plaintext (round-trip oracle)
+fontbuild/glyphs.py    add blank zero-width carrier glyphs to the base
+fontbuild/features.py  cmap population + GSUB liga compilation
+fontbuild/build_font.py  orchestrate the pipeline -> dist/SoulsOnly.ttf
+tools/make_preview.py  generate dist/preview.html
+tests/                 pytest suite (run via python -m pytest)
+base/Jost-Regular.ttf  instanced OFL base font (glyph outlines)
+dist/SoulsOnly.ttf     the built cipher font
 ```
 
 ## Setup and run
@@ -60,28 +60,23 @@ scripts/fetch_base_font.sh  re-fetch and instance the base font
 ```bash
 python3 -m venv .venv
 ./.venv/bin/pip install -r requirements.txt
+bash scripts/fetch_base_font.sh        # if base/Jost-Regular.ttf is missing
 
-# if base/Inter-Regular.ttf is missing:
-bash scripts/fetch_base_font.sh
-
-./.venv/bin/python src/build_font.py      # build the font
-./.venv/bin/python test/roundtrip.py      # run the round-trip checks
-
-# visual check in a browser:
-./.venv/bin/python test/make_preview.py
-./.venv/bin/python -m http.server 8753    # then open localhost:8753/test/preview.html
+./.venv/bin/python -m fontbuild.build_font   # build the font
+./.venv/bin/python -m pytest                 # run the suite
+./.venv/bin/python tools/make_preview.py     # regenerate the preview
 ```
 
 ## Encode and decode by hand
 
 ```bash
-./.venv/bin/python src/encode.py "hello world"            # prints PUA stream
-./.venv/bin/python src/encode.py "hello world" \
-  | ./.venv/bin/python src/decode.py                      # prints "hello world"
+./.venv/bin/python -m cipher.encode "hello world"            # prints PUA stream
+./.venv/bin/python -m cipher.encode "hello world" \
+  | ./.venv/bin/python -m cipher.decode                      # prints "hello world"
 ```
 
 ## Base font and license
 
-Glyph outlines come from [Inter](https://github.com/rsms/inter), licensed under
+Glyph outlines come from [Jost](https://github.com/indestructible-type/Jost), licensed under
 the SIL Open Font License, instanced to a static Regular. Redistribution of the
 built font must carry the OFL notice.

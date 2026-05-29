@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Souls Only — cipher keyboard demo</title>
+<style>
+  @font-face {
+    font-family: "Souls Demo";
+    src: url("./SoulsDemo.ttf") format("truetype");
+  }
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; min-height: 100vh; background: #0e0f13; color: #e8e8ea;
+    font-family: -apple-system, system-ui, sans-serif;
+    display: flex; flex-direction: column; gap: 1.25rem;
+    padding: 2.5rem clamp(1rem, 5vw, 4rem);
+  }
+  h1 { font-size: 1.4rem; font-weight: 600; margin: 0; }
+  p.sub { margin: 0; color: #9aa0aa; max-width: 60ch; line-height: 1.5; }
+  .panes { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+  @media (max-width: 820px) { .panes { grid-template-columns: 1fr; } }
+  .pane { background: #16181f; border: 1px solid #262a35; border-radius: 12px; padding: 1rem 1.25rem; }
+  .label { font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; color: #7c828d; margin-bottom: .6rem; }
+  .label b { color: #c7ccd6; }
+
+  /* What a human sees: the demo font with ligatures ON. */
+  #readable {
+    font-family: "Souls Demo", serif;
+    font-variant-ligatures: common-ligatures;
+    font-feature-settings: "liga" 1;
+    font-size: 2.1rem; line-height: 1.4; min-height: 6rem;
+    outline: none; white-space: pre-wrap; word-break: break-word;
+  }
+  #readable.plain { font-family: ui-monospace, monospace; font-size: 1.4rem; }
+
+  /* What the computer stores: the raw bytes, no cipher font. */
+  #raw {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 1.1rem; line-height: 1.5; color: #ff8585;
+    min-height: 6rem; white-space: pre-wrap; word-break: break-all;
+  }
+  .controls { display: flex; gap: .75rem; flex-wrap: wrap; align-items: center; }
+  button { background: #2a2f3c; color: #e8e8ea; border: 1px solid #3a4150; border-radius: 8px; padding: .5rem .9rem; font-size: .9rem; cursor: pointer; }
+  button:hover { background: #333a49; }
+  kbd { background: #21242d; border: 1px solid #3a4150; border-bottom-width: 2px; border-radius: 5px; padding: .05rem .4rem; font-size: .85em; }
+</style>
+</head>
+<body>
+  <div>
+    <h1>Souls Only — cipher keyboard demo</h1>
+    <p class="sub">
+      Type into the left box with the cipher keyboard. You read real words; the
+      computer stores the garbage on the right. Same bytes, two truths: the font
+      is the only decoder, and it lives at the rendering layer.
+    </p>
+  </div>
+
+  <div class="controls">
+    <button id="toggleFont">Toggle the font off (reveal the bytes)</button>
+    <button id="clear">Clear</button>
+    <label class="sub" style="display:flex;align-items:center;gap:.4rem;">
+      <input type="checkbox" id="simulate"> Simulate cipher keyboard (type normally)
+    </label>
+    <span class="sub">With the real keyboard, leave Simulate <b>off</b> and press
+      <kbd>Right&nbsp;Ctrl</kbd> to flip cipher mode.</span>
+  </div>
+
+  <div class="panes">
+    <div class="pane">
+      <div class="label">What a <b>human</b> reads (Souls&nbsp;Demo font)</div>
+      <div id="readable" contenteditable="true" spellcheck="false"
+           aria-label="Type here with the cipher keyboard"></div>
+    </div>
+    <div class="pane">
+      <div class="label">What the <b>computer</b> stores / an LLM scrapes</div>
+      <div id="raw"></div>
+    </div>
+  </div>
+
+<script src="./cipher_table.js"></script>
+<script>
+  const readable = document.getElementById("readable");
+  const raw = document.getElementById("raw");
+  const simulate = document.getElementById("simulate");
+  const sync = () => { raw.textContent = readable.textContent || ""; };
+  readable.addEventListener("input", sync);
+
+  // Simulate mode: the page encodes each typed letter into its code, so a
+  // normal keyboard reproduces what the cipher keyboard would emit. Off by
+  // default; turn off when using the real keyboard (it already emits codes).
+  readable.addEventListener("keydown", (e) => {
+    if (!simulate.checked) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;        // leave shortcuts alone
+    const code = CIPHER_MAP[e.key];                          // only bare a-z map
+    if (!code) return;
+    e.preventDefault();
+    document.execCommand("insertText", false, code);        // insert at caret
+    sync();
+  });
+
+  document.getElementById("clear").addEventListener("click", () => {
+    readable.textContent = ""; sync(); readable.focus();
+  });
+  document.getElementById("toggleFont").addEventListener("click", (e) => {
+    readable.classList.toggle("plain");
+    e.target.textContent = readable.classList.contains("plain")
+      ? "Toggle the font on (decode it)"
+      : "Toggle the font off (reveal the bytes)";
+  });
+  readable.focus();
+</script>
+</body>
+</html>
