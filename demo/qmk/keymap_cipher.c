@@ -50,6 +50,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     // Clear the user's held modifiers (e.g. the Shift used to type a capital or
     // symbol) so they do not corrupt the keystrokes we emit; restore afterward.
     uint8_t saved = get_mods();
+    uint8_t saved_weak = get_weak_mods();
     clear_mods();
     clear_weak_mods();
     kb_emitting = true;
@@ -67,5 +68,6 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     }
     kb_emitting = false;
     set_mods(saved);
+    set_weak_mods(saved_weak);
     return false;              // we handled it; suppress the original key
 }
