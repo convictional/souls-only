@@ -80,9 +80,8 @@ def _add_half_glyphs(font: TTFont) -> None:
                 (glyph, adv), _ = space_half_glyphs(font)
             elif ls.startswith("cls_"):
                 cls = ls[len("cls_"):]
-                join = _join_for_class(font["hmtx"], font.getBestCmap(),
-                                       charset.FRAGMENT_CLASSES[cls])
-                glyph, adv = left_half_glyph(font, charset.CANONICAL[cls], join)
+                canon = charset.CANONICAL[cls]
+                glyph, adv = left_half_glyph(font, canon, _char_join(font, canon))
             else:  # "L_<ch>"
                 glyph, adv = left_half_glyph(font, ch, own_join(font, ch))
             _install(font, charset.half_glyph_name(ls), glyph, adv)
