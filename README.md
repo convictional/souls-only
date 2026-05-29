@@ -25,25 +25,35 @@ project decouples them:
 Because two codepoints collapse into one glyph, the stored codepoint count and
 the rendered glyph count deliberately diverge.
 
-## Current status: Phase 2 complete
+## Current status: Phase 3 complete
 
-The codepoint/glyph decoupling plus homophones and zero-width noise are working
-and verified:
+Decoupling, homophones, zero-width noise, and shared-ambiguous fragments are all
+working and verified:
 
-- lowercase a-z, with frequency-tiered homophones (6 carriers for `e t a o i n s`,
-  4 for `r h l d c u`, 2 for `m f p g w y b`, 1 for `v k x j q z`)
-- homophones are realized as distinct glyph IDs with identical outlines, so the
-  rendered image is unchanged while carrier frequency is flattened
+- lowercase a-z, with frequency-tiered homophones (6 carriers for the most
+  common letters down to 1 for the rarest), realized as distinct glyph IDs with
+  identical outlines so the image is unchanged while carrier frequency flattens
 - the encoder picks a random homophone per letter and sprinkles zero-width noise
   codepoints between letters (never inside a pair)
-- the font-only decoder reverses homophone duplicates by glyph name and drops
-  noise, and round-trips arbitrary random encoded streams back to plaintext
-- spaces and punctuation still pass through unchanged
+- two letter classes render as shared-ambiguous half-glyphs composed purely
+  through cmap, with no GSUB rule: the bowl class `a c d e g o q` shares one
+  canonical left bowl, the stem class `m n r u` shares one left stem. Glyph
+  names are opaque, so a font-table dump reveals only meaningless half-shapes
+  and never a fragment-to-letter mapping
+- fragment carriers also come in homophone pools, so the common fragment letters
+  stay frequency-flat
+- the decoder reverses ligature letters from the font and fragment letters from
+  the cipher tables (the font intentionally documents no fragment mapping), and
+  round-trips arbitrary random streams (homophones + noise + fragments) back to
+  plaintext
 
-Not yet implemented (next phases): shared-ambiguous half-letter fragments
-(Phase 3), the in-font scatter-to-align reveal on a variable axis (Phase 4), and
-full case/digit/punctuation coverage. See the integrated design spec under
-`docs/superpowers/specs/`.
+Known limit (by design): the shared left fragment is a single compromise image
+reused across a class, so letters whose own left half differs from the canonical
+one render imperfectly until hand-tuned. That tuning is deferred.
+
+Not yet implemented: the in-font scatter-to-align reveal on a variable axis
+(Phase 4), and full case/digit/punctuation coverage. See the integrated design
+spec under `docs/superpowers/specs/`.
 
 ## Layout
 
