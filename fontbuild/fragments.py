@@ -17,6 +17,7 @@ import pathops
 from fontTools.pens.cu2quPen import Cu2QuPen
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib import TTFont
+from fontTools.ttLib.tables._g_l_y_f import Glyph
 
 from cipher.carriers import (
     FRAGMENT_CLASSES,
@@ -173,6 +174,25 @@ def right_half_glyph(font: TTFont, letter: str, join: int,
         path = _clip_box(_glyph_path(glyphset, g), join - overlap, width,
                          _YMIN, ceiling)
     return _path_to_ttglyph(path, dx=-join), width - join
+
+
+def _blank_glyph():
+    g = Glyph()
+    g.numberOfContours = 0
+    return g
+
+
+def space_half_glyphs(font: TTFont):
+    """Two blank half-glyphs whose advances sum to the space advance, so an
+    encoded space tiles into a space-width gap. Returns ((lg, ladv), (rg, radv))."""
+    width = font["hmtx"][font.getBestCmap()[ord(" ")]][0]
+    ladv = width // 2
+    return (_blank_glyph(), ladv), (_blank_glyph(), width - ladv)
+
+
+def pad_glyph():
+    """A zero-advance blank glyph for the newline pad character. Returns (g, adv)."""
+    return _blank_glyph(), 0
 
 
 def _install(font: TTFont, name: str, glyph, advance: int) -> None:
