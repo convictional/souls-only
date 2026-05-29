@@ -13,7 +13,7 @@ from fontTools.ttLib import TTFont
 from cipher.carriers import (
     all_carrier_codepoints,
     carrier_glyph_name,
-    ligature_pairs,
+    homophone_pairs,
 )
 
 
@@ -32,7 +32,7 @@ def generate_fea(font: TTFont) -> str:
     """Build the FEA `liga` feature: each carrier pair -> its real letter glyph."""
     base_cmap = font.getBestCmap()
     lines = ["feature liga {"]
-    for letter, (first, second) in ligature_pairs().items():
+    for letter, (first, second) in {k: v[0] for k, v in homophone_pairs().items()}.items():
         letter_glyph = base_cmap.get(ord(letter))
         if letter_glyph is None:
             raise RuntimeError(f"base font has no glyph for {letter!r}")

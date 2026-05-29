@@ -1,33 +1,51 @@
 from cipher import carriers
 
 
-def test_every_letter_has_one_pair():
-    pairs = carriers.ligature_pairs()
+def test_homophone_counts_by_tier():
+    pairs = carriers.homophone_pairs()
     assert set(pairs) == set("abcdefghijklmnopqrstuvwxyz")
-    for first, second in pairs.values():
-        assert 0xE000 <= first <= 0xF8FF
-        assert 0xE000 <= second <= 0xF8FF
+    for ch in "etaoins":
+        assert len(pairs[ch]) == 6
+    for ch in "rhldcu":
+        assert len(pairs[ch]) == 4
+    for ch in "mfpgwyb":
+        assert len(pairs[ch]) == 2
+    for ch in "vkxjqz":
+        assert len(pairs[ch]) == 1
 
 
-def test_pairs_are_unique_across_letters():
-    pairs = carriers.ligature_pairs()
+def test_total_pair_count():
+    pairs = carriers.homophone_pairs()
+    total = sum(len(v) for v in pairs.values())
+    assert total == 6 * 7 + 4 * 6 + 2 * 7 + 1 * 6  # 86
+
+
+def test_all_pair_carriers_unique_and_in_pua():
+    pairs = carriers.homophone_pairs()
     seen = []
-    for first, second in pairs.values():
-        seen.append(first)
-        seen.append(second)
+    for plist in pairs.values():
+        for first, second in plist:
+            seen.extend([first, second])
     assert len(seen) == len(set(seen))  # no carrier reused
+    assert all(0xE000 <= cp <= 0xF8FF for cp in seen)
+
+
+def test_noise_pool_disjoint_from_carriers():
+    pairs = carriers.homophone_pairs()
+    carrier_cps = {cp for plist in pairs.values() for pr in plist for cp in pr}
+    noise = set(carriers.noise_codepoints())
+    assert len(noise) == 64
+    assert all(0xE000 <= cp <= 0xF8FF for cp in noise)
+    assert carrier_cps.isdisjoint(noise)
 
 
 def test_all_carrier_codepoints_matches_pairs():
-    pairs = carriers.ligature_pairs()
-    expected = set()
-    for first, second in pairs.values():
-        expected.add(first)
-        expected.add(second)
+    pairs = carriers.homophone_pairs()
+    expected = {cp for plist in pairs.values() for pr in plist for cp in pr}
     assert set(carriers.all_carrier_codepoints()) == expected
     assert carriers.all_carrier_codepoints() == sorted(expected)
 
 
-def test_glyph_name_scheme():
+def test_glyph_name_schemes():
     assert carriers.carrier_glyph_name(0xE000) == "car_E000"
-    assert carriers.carrier_glyph_name(0xE10A) == "car_E10A"
+    assert carriers.noise_glyph_name(0xE800) == "noise_E800"

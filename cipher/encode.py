@@ -9,11 +9,11 @@ from __future__ import annotations
 
 import sys
 
-from cipher.carriers import ligature_pairs
+from cipher.carriers import homophone_pairs
 
 
 def encode(text: str) -> str:
-    pairs = ligature_pairs()
+    pairs = {k: v[0] for k, v in homophone_pairs().items()}
     out: list[str] = []
     for ch in text:
         pair = pairs.get(ch)

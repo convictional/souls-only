@@ -6,7 +6,7 @@ import os
 
 from fontTools.ttLib import TTFont
 
-from cipher.carriers import all_carrier_codepoints, ligature_pairs
+from cipher.carriers import all_carrier_codepoints, homophone_pairs
 from fontbuild.features import compile_features, generate_fea, populate_cmap
 from fontbuild.glyphs import add_blank_carrier_glyphs
 
@@ -45,8 +45,9 @@ def build() -> None:
     os.makedirs(os.path.dirname(OUT_FONT), exist_ok=True)
     font.save(OUT_FONT)
     print(f"wrote {OUT_FONT}")
+    n_pairs = sum(len(v) for v in homophone_pairs().values())
     print(f"  {len(all_carrier_codepoints())} carrier glyphs, "
-          f"{len(ligature_pairs())} ligature rules")
+          f"{n_pairs} ligature rules")
 
 
 if __name__ == "__main__":
