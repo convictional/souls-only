@@ -138,10 +138,26 @@ def build_reveal(aligned_path: str = ALIGNED, out_vf: str = OUT_VF) -> None:
         doc.addSource(src)
 
     vf, _, _ = varlib_build(doc)
+
+    # Give the variable font a DISTINCT family name ("<base> VF") so it can be
+    # installed on the OS alongside the static font without a family collision.
+    base_family = (aligned["name"].getDebugName(16)
+                   or aligned["name"].getDebugName(1) or "Souls Only")
+    vf_family = f"{base_family} VF"
+    vf_ps = base_family.replace(" ", "") + "VF-Regular"
+    name = vf["name"]
+    for plat in ((3, 1, 0x409), (1, 0, 0)):   # Windows + Mac platform records
+        name.setName(vf_family, 1, *plat)
+        name.setName("Regular", 2, *plat)
+        name.setName(vf_family, 4, *plat)
+        name.setName(vf_ps, 6, *plat)
+        name.setName(vf_family, 16, *plat)
+        name.setName("Regular", 17, *plat)
+
     vf.save(out_vf)
     for p in (scatter_path, aligned_master_path, distort_path):
         os.remove(p)
-    print(f"wrote {out_vf}")
+    print(f"wrote {out_vf} (family {vf_family!r})")
     print(f"  axis {_AXIS_TAG} 0..{_AXIS_MAX}, default 0; readable at {_ALIGNED_AT}")
 
 
