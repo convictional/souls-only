@@ -18,12 +18,13 @@ from cipher.encode import encode  # noqa: E402
 
 SAMPLE = "the quick brown fox jumps over the lazy dog"
 OUT = os.path.join(ROOT, "dist", "preview.html")
+FONT = os.path.join(ROOT, "dist", "SoulsOnly.ttf")
 
 TEMPLATE = """<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <title>Souls Only preview</title>
 <style>
-  @font-face {{ font-family:"Souls Only"; src:url("SoulsOnly.ttf") format("truetype"); }}
+  @font-face {{ font-family:"Souls Only"; src:url("SoulsOnly.ttf?v={cachebust}") format("truetype"); }}
   body {{ font-family:-apple-system,system-ui,sans-serif; max-width:50rem; margin:3rem auto; padding:0 1rem; }}
   .label {{ font-size:.8rem; text-transform:uppercase; letter-spacing:.05em; color:#888; margin:1.5rem 0 .3rem; }}
   .cipher {{ font-family:"Souls Only"; font-size:2rem; font-feature-settings:"liga" 1; }}
@@ -40,8 +41,12 @@ TEMPLATE = """<!DOCTYPE html>
 
 def main() -> int:
     encoded = encode(SAMPLE)
+    # Cache-bust the font URL with its mtime so the browser always loads the
+    # freshly built font instead of a stale cached copy.
+    cachebust = int(os.path.getmtime(FONT)) if os.path.exists(FONT) else 0
     with open(OUT, "w") as fh:
-        fh.write(TEMPLATE.format(plaintext=SAMPLE, encoded=encoded))
+        fh.write(TEMPLATE.format(plaintext=SAMPLE, encoded=encoded,
+                                 cachebust=cachebust))
     print(f"wrote {OUT}")
     return 0
 
