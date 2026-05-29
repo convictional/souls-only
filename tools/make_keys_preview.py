@@ -17,12 +17,10 @@ sys.path.insert(0, ROOT)
 from cipher import keyboard as kb  # noqa: E402
 
 SAMPLE = (
-    "a font where the rendered glyphs spell readable words while the stored "
-    "bytes are noise. the font itself is the decoder, applied only when the "
-    "glyphs are drawn.\n\n"
-    "this text is exactly what the cipher keyboard types: every letter is two "
-    "random codes, four symbols, tiled back into a letter by the font and "
-    "revealed on the axis."
+    "Souls Keys now renders the FULL charset: Uppercase, digits 0123456789, "
+    "and symbols !@#$%&*()-+=/?;:'\",.<> all tile into readable glyphs.\n\n"
+    "The Quick Brown Fox Jumps Over 13 Lazy Dogs! (cost: $4.50 @ 90% off?) "
+    "Email a.b@example.com -- the bytes are noise; the font is the decoder."
 )
 OUT = os.path.join(ROOT, "dist", "keys.html")
 VF = os.path.join(ROOT, "dist", "SoulsKeys-VF.ttf")
