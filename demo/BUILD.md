@@ -1,21 +1,31 @@
 # Build & demo runbook (Montreal onsite, Mon Jun 1)
 
-Goal: a wired Keychron, reflashed so each lowercase key types its Souls Keys
-cipher codes, plus a laptop showing the Souls Keys font decoding it live and the
-REVL axis scattering/revealing the glyphs. Build Saturday, keep Sunday as buffer
-and rehearsal.
+Goal: a wired Keychron, reflashed so each key types its Souls Keys cipher codes,
+plus a laptop showing the Souls Keys font decoding it live and the REVL axis
+scattering/revealing the glyphs. Build Saturday, keep Sunday as buffer and rehearsal.
 
 The hard dependency is buying a genuinely **QMK/VIA** board (see SHOPPING.md).
 Everything else is generated from the repo.
 
 ## The scheme (one source of truth)
 
-Every lowercase letter is two half-glyphs. Each half-glyph is addressed by a
-pool of 2-character ASCII codes, so a letter is typed as **two random codes =
-four ASCII symbols** (homophones: different bytes every keypress). The Souls Keys
-font ligates each code into a half-glyph and tiles the two halves into the
-letter; the **REVL** variable axis scatters the glyphs at 0 and assembles them at
-1000. `cipher/keyboard.py` is the single source of truth; it generates the font's
+The cipher covers the full US-QWERTY printable charset: lowercase letters,
+UPPERCASE letters (Shift+letter), digits 0-9, and all symbols. Shift handling
+is done in the firmware, so every key on the board is ciphered. Each character
+is two half-glyphs addressed by a pool of 2-character ASCII codes, so a
+character is typed as **two random codes = four ASCII symbols** (homophones:
+different bytes every keypress). The Souls Keys font ligates each code into a
+half-glyph and tiles the two halves into the character.
+
+Every logical input is exactly 4 stream characters, so editing keys work in
+whole characters: Backspace deletes one character (4 chars), Left/Right arrows
+move by one character (4 chars), Space is a 4-char code, and Return is a real
+newline plus 3 zero-width pad characters.
+
+The **REVL** variable axis controls readability: text is fully readable at
+**REVL = 650** (the midpoint of the axis); dragging toward 0 or toward 1000
+distorts the glyphs, so a sweep to max does not reveal the text.
+`cipher/keyboard.py` is the single source of truth; it generates the font's
 GSUB, the QMK table, and the browser demo table, so they cannot drift.
 
 ---
@@ -48,7 +58,8 @@ Run from the repo root.
      encodes each letter into two random codes as you type, so the left box reads
      normally (Souls Keys font) and the right box fills with ASCII noise. This
      reproduces exactly what the real keyboard emits.
-   - Drag **REVL** left: the glyphs scatter into noise; drag right: they assemble.
+   - Drag **REVL** to 650 (the midpoint): the glyphs are fully readable. Dragging
+     toward 0 or 1000 distorts them - a sweep to max does not reveal the text.
    - Click **"Toggle the font off"**: the readable text collapses into the same
      garbage bytes. That toggle, plus REVL, IS the demo.
 
@@ -129,16 +140,22 @@ long as you can enter bootloader.
    what a scraper or an LLM sees. And it is different every keystroke."
 4. Click "Toggle the font off": the readable text collapses into the same garbage.
    "The font is the only decoder, and it only runs at the rendering layer."
-5. Drag REVL to 0: "By default the font doesn't even show the letters; they
-   scatter. You pull the message together." Drag back to 1000.
-6. Turn cipher OFF, type your name normally. "And it is still a normal keyboard."
+5. Drag REVL toward 0 or 1000: "The glyphs distort at either extreme." Drag to
+   650: "Right here - the midpoint - is where the text snaps into focus."
+6. Type a capital, a number, and a symbol (e.g. Hi! 42 @x). Press Backspace
+   once - a whole character disappears. Press Left/Right - the cursor steps by
+   a whole character. "Every keystroke, uppercase or symbol, is fully ciphered."
+7. Turn cipher OFF, type your name normally. "And it is still a normal keyboard."
 
 ## Known limits (say them if asked)
-- Lowercase letters only; capitals/punctuation pass through unciphered.
+- The full printable charset is ciphered (lowercase, uppercase, digits, symbols)
+  with homophones (random codes per keypress). Non-printable control characters
+  other than Space, Return, Backspace, and Left/Right arrows pass through unciphered.
 - Codes are ASCII, so a determined reader can dump the font + table and reverse
-  it; and the REVL reveal is one bounded axis, so an automated sweep + OCR can
-  defeat it. This is a statement device: strong against bulk/casual scraping,
-  weak against a targeted attacker. The font is the key, and it ships to readers.
+  it; and the REVL readable point is REVL=650 (the midpoint), so a targeted
+  attacker who knows the schema can find it. This is a statement device: strong
+  against bulk/casual scraping, weak against a targeted attacker. The font is the
+  key, and it ships to readers.
 - Homophones (random codes per keypress) defeat simple frequency analysis on the
   stream; the shared bowl/stem half-glyphs add image-level ambiguity.
 - Wired for reliability; a Bluetooth build is the v2.
