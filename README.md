@@ -72,6 +72,18 @@ Not yet implemented: full case/digit/punctuation coverage, and the GPOS
 position-variation refinement of the reveal (this build uses outline variation).
 See the integrated design spec under `docs/superpowers/specs/`.
 
+## Keyboard-typeable variant (Souls Keys)
+
+The PUA font above is not typeable on a hardware keyboard (USB HID cannot send
+Private Use Area codepoints). `Souls Keys` is a refactor of the same engine for a
+physical cipher keyboard: every letter renders as two half-glyphs, each
+addressed by a pool of 2-character ASCII codes, so a letter is typed as two
+random codes (four ASCII symbols, homophones). A GSUB ligature collapses each
+code into its half-glyph and the halves tile into the letter; the same `REVL`
+reveal applies. `cipher/keyboard.py` is the single source of truth that drives
+the font GSUB, the QMK firmware table, and the browser demo. See `demo/` for the
+keyboard build, the QMK keymap, and the live demo page.
+
 ## Layout
 
 ```
@@ -82,8 +94,13 @@ cipher/decode.py       font tables -> plaintext (round-trip oracle)
 fontbuild/glyphs.py    add blank zero-width carrier glyphs to the base
 fontbuild/features.py  cmap population + GSUB liga compilation
 fontbuild/build_font.py  orchestrate the pipeline -> dist/SoulsOnly.ttf
-fontbuild/fragments.py  shared-ambiguous half-glyph generation (skia-pathops)
+fontbuild/fragments.py  shared-ambiguous half-glyph slicing (skia-pathops), reused
 fontbuild/reveal.py    build the REVL variable reveal font from two masters
+cipher/keyboard.py     keyboard track: ASCII code layer (reuses carriers routing)
+fontbuild/build_keyboard.py  build dist/SoulsKeys.ttf (+ REVL) from the engine
+tools/make_qmk_table.py      generate the QMK firmware table from cipher/keyboard
+tools/make_demo_assets.py    generate the browser demo table + copy the VF
+demo/                  the physical cipher keyboard demo (QMK keymap, runbook, page)
 tools/make_preview.py  generate dist/preview.html (static cipher preview)
 tools/make_reveal_preview.py  generate dist/reveal.html (the REVL slider)
 tests/                 pytest suite (run via python -m pytest)
@@ -105,6 +122,12 @@ bash scripts/fetch_base_font.sh        # if base/Jost-Regular.ttf is missing
 ./.venv/bin/python tools/make_preview.py         # static cipher preview
 ./.venv/bin/python tools/make_reveal_preview.py  # the REVL scatter-reveal slider
 # then: python -m http.server 8753  and open dist/reveal.html
+
+# keyboard-typeable variant (Souls Keys) + its demo:
+./.venv/bin/python -m fontbuild.build_keyboard   # dist/SoulsKeys.ttf + SoulsKeys-VF.ttf
+./.venv/bin/python tools/make_qmk_table.py       # demo/qmk/cipher_table.h
+./.venv/bin/python tools/make_demo_assets.py     # demo/cipher_table.js + demo/SoulsKeys-VF.ttf
+# then open demo/index.html  (see demo/BUILD.md for the hardware runbook)
 ```
 
 ## Encode and decode by hand
