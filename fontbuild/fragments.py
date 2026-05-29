@@ -33,6 +33,11 @@ _YMIN, _YMAX = -400, 1000
 # Fraction of the narrowest class member's advance used as the join coordinate.
 _JOIN_FRACTION = 0.45
 
+# The two halves overlap by this many units at the join so sub-pixel rounding
+# cannot open a hairline gap. Advances are unaffected (still J and W - J), so the
+# tiling width is preserved; only the filled outlines overlap across the seam.
+_SEAM_OVERLAP = 8
+
 
 class _ShiftPen:
     """Segment pen that translates every point by dx before forwarding."""
@@ -108,18 +113,21 @@ def add_fragment_glyphs(font: TTFont) -> dict[str, int]:
         join = _join_for_class(hmtx, base_cmap, members)
         joins[cls] = join
 
-        # Shared left fragment: canonical letter clipped to [0, join].
+        # Shared left fragment: canonical letter clipped to [0, join + overlap].
+        # Advance stays J; the extra ink past J overlaps the right half's ink.
         canon_glyph = base_cmap[ord(CANONICAL[cls])]
-        left = _clip(_glyph_path(glyphset, canon_glyph), 0, join)
+        left = _clip(_glyph_path(glyphset, canon_glyph), 0, join + _SEAM_OVERLAP)
         lname = left_fragment_glyph_name(cls)
         glyf[lname] = _path_to_ttglyph(left)
         hmtx[lname] = (join, 0)
 
-        # Per-letter right fragment: letter clipped to [join, W], shifted left.
+        # Per-letter right fragment: letter clipped to [join - overlap, W],
+        # shifted left by join. Advance stays W - J; its ink starts a touch
+        # before 0 so it overlaps the shared left half across the seam.
         for letter in members:
             g = base_cmap[ord(letter)]
             width = hmtx[g][0]
-            right = _clip(_glyph_path(glyphset, g), join, width)
+            right = _clip(_glyph_path(glyphset, g), join - _SEAM_OVERLAP, width)
             rname = right_fragment_glyph_name(letter)
             glyf[rname] = _path_to_ttglyph(right, dx=-join)
             hmtx[rname] = (width - join, 0)
