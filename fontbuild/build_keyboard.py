@@ -25,6 +25,7 @@ from cipher.carriers import ALPHABET, fragment_class_of, FRAGMENT_CLASSES
 from fontbuild.features import compile_features
 from fontbuild.fragments import (
     CANONICAL,
+    _install,
     _join_for_class,
     left_half_glyph,
     own_join,
@@ -76,8 +77,7 @@ def _add_half_glyphs(font: TTFont) -> None:
         else:  # "R_<letter>"
             letter = slot[len("R_"):]
             glyph, adv = right_half_glyph(font, letter, _letter_join(font, letter))
-        glyf[name] = glyph
-        font["hmtx"][name] = (adv, 0)
+        _install(font, name, glyph, adv)  # sets lsb = xMin (avoids half-gap)
 
 
 def _add_carriers_and_cmap(font: TTFont) -> None:

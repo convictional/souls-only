@@ -81,6 +81,21 @@ def test_table_dump_reveals_no_code_to_letter_mapping(built_keys_path):
         assert re.fullmatch(r"kf_\d+", kb.half_glyph_name(slot))
 
 
+def test_half_glyph_lsb_matches_xmin(built_keys_path):
+    # The left side bearing must equal the glyph's xMin; otherwise renderers
+    # reposition the half and open a gap, so a letter reads as two strokes.
+    font = TTFont(built_keys_path)
+    glyf = font["glyf"]
+    hmtx = font["hmtx"]
+    for slot in kb.half_slots():
+        name = kb.half_glyph_name(slot)
+        g = glyf[name]
+        if getattr(g, "numberOfContours", 0) <= 0:
+            continue
+        g.recalcBounds(glyf)
+        assert hmtx[name][1] == g.xMin, f"{name}: lsb {hmtx[name][1]} != xMin {g.xMin}"
+
+
 def test_keyboard_reveal_axis(built_keys_vf_path):
     f = TTFont(built_keys_vf_path)
     axes = {a.axisTag: a for a in f["fvar"].axes}

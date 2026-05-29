@@ -146,8 +146,15 @@ def right_half_glyph(font: TTFont, letter: str, join: int,
 
 
 def _install(font: TTFont, name: str, glyph, advance: int) -> None:
-    font["glyf"][name] = glyph
-    font["hmtx"][name] = (advance, 0)
+    glyf = font["glyf"]
+    glyf[name] = glyph
+    # The left side bearing MUST equal the glyph's xMin. Half-glyphs have ink at
+    # nonzero xMin (left halves start at the letter's stem, right halves a touch
+    # before 0), so a hardcoded lsb=0 makes renderers reposition the glyph and
+    # open a gap between the two halves. Recalc bounds and set lsb = xMin.
+    glyph.recalcBounds(glyf)
+    lsb = getattr(glyph, "xMin", 0)
+    font["hmtx"][name] = (advance, lsb)
 
 
 def add_fragment_glyphs(font: TTFont) -> dict[str, int]:
