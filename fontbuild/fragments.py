@@ -50,6 +50,14 @@ _JOIN_FRACTION = 0.45
 # tiling width is preserved; only the filled outlines overlap across the seam.
 _SEAM_OVERLAP = 8
 
+# Per-letter right-half source overrides: {letter: (source_letter, y_ceiling)}.
+# Jost's single-story 'a' has a much smaller bowl than the shared 'o', so a's own
+# right half mismatches the shared bowl and leaves a stub at the seam. 'd' has an
+# o-sized bowl plus a right stem; clipping d's right half to the x-height drops
+# the ascender and yields exactly the right side of a single-story 'a' that tiles
+# cleanly with the shared o-bowl. y_ceiling = a touch above the x-height top.
+_RIGHT_SOURCE = {"a": ("d", 478)}
+
 
 class _ShiftPen:
     """Segment pen that translates every point by dx before forwarding."""
@@ -101,6 +109,18 @@ def _clip(path: pathops.Path, xmin: float, xmax: float) -> pathops.Path:
     return pathops.op(path, _rect(xmin, xmax), pathops.PathOp.INTERSECTION)
 
 
+def _clip_box(path: pathops.Path, xmin: float, xmax: float,
+              ymin: float, ymax: float) -> pathops.Path:
+    box = pathops.Path()
+    pen = box.getPen()
+    pen.moveTo((xmin, ymin))
+    pen.lineTo((xmax, ymin))
+    pen.lineTo((xmax, ymax))
+    pen.lineTo((xmin, ymax))
+    pen.closePath()
+    return pathops.op(path, box, pathops.PathOp.INTERSECTION)
+
+
 def _path_to_ttglyph(path: pathops.Path, dx: float = 0):
     ttpen = TTGlyphPen(None)
     cu2qu = Cu2QuPen(ttpen, max_err=1.0, reverse_direction=False)
@@ -136,12 +156,22 @@ def left_half_glyph(font: TTFont, letter: str, join: int,
 def right_half_glyph(font: TTFont, letter: str, join: int,
                      overlap: int = _SEAM_OVERLAP):
     """Right half of `letter` clipped to [join - overlap, W], shifted left by
-    join. Returns (glyph, advance = W - join)."""
+    join. Returns (glyph, advance = W - join).
+
+    A letter may borrow its right half from another glyph (see _RIGHT_SOURCE),
+    e.g. 'a' borrows 'd' clipped to the x-height so its right side matches the
+    shared o-bowl. The advance comes from the source so the halves still tile.
+    """
     glyphset = font.getGlyphSet()
     hmtx = font["hmtx"]
-    g = font.getBestCmap()[ord(letter)]
+    source, ceiling = _RIGHT_SOURCE.get(letter, (letter, None))
+    g = font.getBestCmap()[ord(source)]
     width = hmtx[g][0]
-    path = _clip(_glyph_path(glyphset, g), join - overlap, width)
+    if ceiling is None:
+        path = _clip(_glyph_path(glyphset, g), join - overlap, width)
+    else:
+        path = _clip_box(_glyph_path(glyphset, g), join - overlap, width,
+                         _YMIN, ceiling)
     return _path_to_ttglyph(path, dx=-join), width - join
 
 

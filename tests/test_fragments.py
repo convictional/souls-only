@@ -9,8 +9,10 @@ from cipher.encode import encode
 
 
 def test_fragment_geometry_tiles_back_to_full_width(base_font_path):
-    # left advance (J) + right advance (W - J) must equal the letter's advance.
-    from fontbuild.fragments import add_fragment_glyphs
+    # left advance (J) + right advance (W - J) must equal the rendered letter's
+    # advance. A letter may borrow its right half from another glyph (e.g. 'a'
+    # borrows 'd'), in which case W is the source glyph's advance.
+    from fontbuild.fragments import _RIGHT_SOURCE, add_fragment_glyphs
 
     font = TTFont(base_font_path)
     joins = add_fragment_glyphs(font)
@@ -21,7 +23,8 @@ def test_fragment_geometry_tiles_back_to_full_width(base_font_path):
         lname = carriers.left_fragment_glyph_name(cls)
         assert hmtx[lname][0] == j
         for letter in members:
-            w = hmtx[base_cmap[ord(letter)]][0]
+            source = _RIGHT_SOURCE.get(letter, (letter, None))[0]
+            w = hmtx[base_cmap[ord(source)]][0]
             rname = carriers.right_fragment_glyph_name(letter)
             assert hmtx[rname][0] == w - j  # tiles back to full advance
 
