@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Souls Keys - cipher keyboard demo</title>
+<title>Souls Only - cipher keyboard demo</title>
 <style>
   @font-face {
-    font-family: "Souls Keys";
-    src: url("./SoulsKeys-VF.ttf") format("truetype");
+    font-family: "Souls Only";
+    src: url("./SoulsOnly-VF.ttf") format("truetype");
   }
   :root { color-scheme: dark; }
   body {
@@ -24,9 +24,9 @@
   .label { font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; color: #7c828d; margin-bottom: .6rem; }
   .label b { color: #c7ccd6; }
 
-  /* What a human sees: the Souls Keys font, ligatures on, on the REVL axis. */
+  /* What a human sees: the Souls Only font, ligatures on, on the REVL axis. */
   #readable {
-    font-family: "Souls Keys", serif;
+    font-family: "Souls Only", serif;
     font-variant-ligatures: common-ligatures;
     font-feature-settings: "liga" 1;
     font-variation-settings: "REVL" 650;
@@ -55,7 +55,7 @@
 </head>
 <body>
   <div>
-    <h1>Souls Keys - cipher keyboard demo</h1>
+    <h1>Souls Only - cipher keyboard demo</h1>
     <p class="sub">
       Type into the left box with the cipher keyboard. You read real words; the
       computer stores the noise on the right. Same bytes, two truths: the font is
@@ -81,7 +81,7 @@
 
   <div class="panes">
     <div class="pane">
-      <div class="label">What a <b>human</b> reads (Souls&nbsp;Keys font)</div>
+      <div class="label">What a <b>human</b> reads (Souls&nbsp;Only font)</div>
       <div id="readable" contenteditable="true" spellcheck="false"
            aria-label="Type here with the cipher keyboard"></div>
     </div>

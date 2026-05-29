@@ -1,4 +1,4 @@
-# Souls Keys: a human-readable, AI-illegible cipher font you can type
+# Souls Only: a human-readable, AI-illegible cipher font you can type
 
 A font whose **rendered glyphs** spell readable text while the **stored
 character stream** (what copy-paste, HTML/PDF extraction, and scrapers see) is
@@ -33,7 +33,7 @@ byte count and the rendered glyph count deliberately diverge.
 
 ## Charset and editing
 
-Souls Keys covers the full US-QWERTY printable set: lowercase, uppercase, digits
+Souls Only covers the full US-QWERTY printable set: lowercase, uppercase, digits
 `0123456789`, and the standard symbols. Whitespace stays editable in whole
 characters: every character is four bytes, so the keyboard deletes and navigates
 in units of four (Backspace removes four, the arrows move four), Space emits one
@@ -42,7 +42,7 @@ so the stream stays four-aligned.
 
 ## The reveal (REVL axis)
 
-Souls Keys ships as a variable font with a custom `REVL` axis built from three
+Souls Only ships as a variable font with a custom `REVL` axis built from three
 masters:
 
 - at `REVL` = 0 (the default, so the safe state is illegible) every glyph is
@@ -78,7 +78,7 @@ cipher/keyboard.py            ASCII carrier-code allocation + encode/decode orac
 cipher/qwerty.py              US-QWERTY keycode -> character map
 fontbuild/fragments.py        half-glyph slicing (skia-pathops)
 fontbuild/features.py         GSUB liga compilation from a FEA file
-fontbuild/build_keyboard.py   build dist/SoulsKeys.ttf (+ the REVL variable font)
+fontbuild/build_keyboard.py   build dist/SoulsOnly.ttf (+ the REVL variable font)
 fontbuild/reveal.py           build the REVL reveal font from three masters
 tools/make_qmk_table.py       generate the QMK firmware table from cipher/keyboard
 tools/make_demo_assets.py     generate the browser demo table + copy the VF
@@ -97,14 +97,14 @@ python3 -m venv .venv
 ./.venv/bin/pip install -r requirements.txt
 bash scripts/fetch_base_font.sh        # if base/Jost-Regular.ttf is missing
 
-./.venv/bin/python -m fontbuild.build_keyboard   # dist/SoulsKeys.ttf + SoulsKeys-VF.ttf
+./.venv/bin/python -m fontbuild.build_keyboard   # dist/SoulsOnly.ttf + SoulsOnly-VF.ttf
 ./.venv/bin/python -m pytest                     # run the suite
 ./.venv/bin/python tools/make_keys_preview.py    # dist/keys.html (the REVL slider)
 # then: python -m http.server 8753  and open dist/keys.html
 
 # regenerate the physical keyboard demo assets:
 ./.venv/bin/python tools/make_qmk_table.py       # demo/qmk/cipher_table.h
-./.venv/bin/python tools/make_demo_assets.py     # demo/cipher_table.js + demo/SoulsKeys-VF.ttf
+./.venv/bin/python tools/make_demo_assets.py     # demo/cipher_table.js + demo/SoulsOnly-VF.ttf
 # then open demo/index.html  (see demo/BUILD.md for the hardware runbook)
 ```
 

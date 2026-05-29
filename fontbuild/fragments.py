@@ -1,4 +1,4 @@
-"""Half-glyph slicing for the Souls Keys font, via skia-pathops.
+"""Half-glyph slicing for the Souls Only font, via skia-pathops.
 
 Every character is sliced into a left and a right half. Shared classes (the
 lowercase bowl a c d e g o q, the lowercase stem m n r u, the uppercase bowl

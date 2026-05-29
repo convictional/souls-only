@@ -11,8 +11,8 @@ A refactor that reuses the existing engine:
 
 Every character becomes two half-glyphs addressed by 2-char ASCII codes; a
 GSUB ligature collapses each code into its half-glyph; the halves tile into
-the character. Output: dist/SoulsKeys.ttf (static) and, via reveal,
-SoulsKeys-VF.ttf.
+the character. Output: dist/SoulsOnly.ttf (static) and, via reveal,
+SoulsOnly-VF.ttf.
 """
 
 from __future__ import annotations
@@ -38,11 +38,11 @@ from fontbuild.reveal import build_reveal
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BASE_FONT = os.path.join(ROOT, "base", "Jost-Regular.ttf")
-OUT_FONT = os.path.join(ROOT, "dist", "SoulsKeys.ttf")
-OUT_VF = os.path.join(ROOT, "dist", "SoulsKeys-VF.ttf")
+OUT_FONT = os.path.join(ROOT, "dist", "SoulsOnly.ttf")
+OUT_VF = os.path.join(ROOT, "dist", "SoulsOnly-VF.ttf")
 OUT_FEA = os.path.join(ROOT, "dist", "fea", "keyboard.fea")
 
-FONT_FAMILY = "Souls Keys"
+FONT_FAMILY = "Souls Only"
 
 
 def _char_join(font: TTFont, ch: str) -> int:
@@ -126,7 +126,7 @@ def _set_names(font: TTFont) -> None:
     name.setName(FONT_FAMILY, 1, 3, 1, 0x409)
     name.setName("Regular", 2, 3, 1, 0x409)
     name.setName(FONT_FAMILY, 4, 3, 1, 0x409)
-    name.setName("SoulsKeys-Regular", 6, 3, 1, 0x409)
+    name.setName("SoulsOnly-Regular", 6, 3, 1, 0x409)
     name.setName(FONT_FAMILY, 16, 3, 1, 0x409)
 
 

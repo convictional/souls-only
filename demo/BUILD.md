@@ -1,7 +1,7 @@
 # Build & demo runbook (Montreal onsite, Mon Jun 1)
 
-Goal: a wired Keychron, reflashed so each key types its Souls Keys cipher codes,
-plus a laptop showing the Souls Keys font decoding it live and the REVL axis
+Goal: a wired Keychron, reflashed so each key types its Souls Only cipher codes,
+plus a laptop showing the Souls Only font decoding it live and the REVL axis
 scattering/revealing the glyphs. Build Saturday, keep Sunday as buffer and rehearsal.
 
 The hard dependency is buying a genuinely **QMK/VIA** board (see SHOPPING.md).
@@ -14,7 +14,7 @@ UPPERCASE letters (Shift+letter), digits 0-9, and all symbols. Shift handling
 is done in the firmware, so every key on the board is ciphered. Each character
 is two half-glyphs addressed by a pool of 2-character ASCII codes, so a
 character is typed as **two random codes = four ASCII symbols** (homophones:
-different bytes every keypress). The Souls Keys font ligates each code into a
+different bytes every keypress). The Souls Only font ligates each code into a
 half-glyph and tiles the two halves into the character.
 
 Every logical input is exactly 4 stream characters, so editing keys work in
@@ -39,13 +39,13 @@ Run from the repo root.
    ```
    .venv/bin/python -m fontbuild.build_keyboard
    ```
-   Produces `dist/SoulsKeys.ttf` and `dist/SoulsKeys-VF.ttf`.
+   Produces `dist/SoulsOnly.ttf` and `dist/SoulsOnly-VF.ttf`.
 
 2. Generate the matching QMK table and the browser-demo assets (one source of
    truth keeps them synced with the font):
    ```
    .venv/bin/python tools/make_qmk_table.py     # -> demo/qmk/cipher_table.h
-   .venv/bin/python tools/make_demo_assets.py   # -> demo/cipher_table.js + demo/SoulsKeys-VF.ttf
+   .venv/bin/python tools/make_demo_assets.py   # -> demo/cipher_table.js + demo/SoulsOnly-VF.ttf
    ```
 
 3. Open the demo page:
@@ -56,7 +56,7 @@ Run from the repo root.
 4. Smoke test WITHOUT the keyboard:
    - Leave **"Simulate cipher keyboard"** ticked and just type normally. The page
      encodes each letter into two random codes as you type, so the left box reads
-     normally (Souls Keys font) and the right box fills with ASCII noise. This
+     normally (Souls Only font) and the right box fills with ASCII noise. This
      reproduces exactly what the real keyboard emits.
    - Drag **REVL** to 650 (the midpoint): the glyphs are fully readable. Dragging
      toward 0 or 1000 distorts them - a sweep to max does not reveal the text.

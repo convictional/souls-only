@@ -1,4 +1,4 @@
-"""GSUB `liga` compilation for the Souls Keys font.
+"""GSUB `liga` compilation for the Souls Only font.
 
 build_keyboard.py writes a FEA file (one ligature rule per 2-char ASCII code,
 collapsing the code's carrier pair into an opaque half-glyph) and calls

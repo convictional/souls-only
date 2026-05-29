@@ -1,8 +1,8 @@
-"""Generate dist/keys.html: the keyboard-typeable Souls Keys font on the REVL
+"""Generate dist/keys.html: the keyboard-typeable Souls Only font on the REVL
 slider, fed by the keyboard encoder (cipher.keyboard). This is what the physical
-keyboard's output looks like when rendered by the Souls Keys font.
+keyboard's output looks like when rendered by the Souls Only font.
 
-    python -m fontbuild.build_keyboard   # builds SoulsKeys.ttf + SoulsKeys-VF.ttf
+    python -m fontbuild.build_keyboard   # builds SoulsOnly.ttf + SoulsOnly-VF.ttf
     python tools/make_keys_preview.py
 """
 
@@ -17,21 +17,21 @@ sys.path.insert(0, ROOT)
 from cipher import keyboard as kb  # noqa: E402
 
 SAMPLE = (
-    "Souls Keys now renders the FULL charset: Uppercase, digits 0123456789, "
+    "Souls Only now renders the FULL charset: Uppercase, digits 0123456789, "
     "and symbols !@#$%&*()-+=/?;:'\",.<> all tile into readable glyphs.\n\n"
     "The Quick Brown Fox Jumps Over 13 Lazy Dogs! (cost: $4.50 @ 90% off?) "
     "Email a.b@example.com -- the bytes are noise; the font is the decoder."
 )
 OUT = os.path.join(ROOT, "dist", "keys.html")
-VF = os.path.join(ROOT, "dist", "SoulsKeys-VF.ttf")
+VF = os.path.join(ROOT, "dist", "SoulsOnly-VF.ttf")
 
 TEMPLATE = """<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
-<title>Souls Keys - keyboard cipher + reveal</title>
+<title>Souls Only - keyboard cipher + reveal</title>
 <style>
   @font-face {{
-    font-family:"Souls Keys VF";
-    src:url("SoulsKeys-VF.ttf?v={cachebust}") format("truetype");
+    font-family:"Souls Only VF";
+    src:url("SoulsOnly-VF.ttf?v={cachebust}") format("truetype");
   }}
   body {{ font-family:-apple-system,system-ui,sans-serif; max-width:60rem;
          margin:0 auto; padding:0 1rem 6rem; color:#222; }}
@@ -41,7 +41,7 @@ TEMPLATE = """<!DOCTYPE html>
   .val {{ font-family:ui-monospace,Menlo,monospace; color:#666; }}
   .label {{ font-size:.8rem; text-transform:uppercase; letter-spacing:.05em;
             color:#888; margin:1.4rem 0 .4rem; }}
-  .cipher {{ font-family:"Souls Keys VF"; font-size:1.7rem; line-height:1.7;
+  .cipher {{ font-family:"Souls Only VF"; font-size:1.7rem; line-height:1.7;
              white-space:pre-wrap; font-feature-settings:"liga" 1;
              font-variation-settings:"REVL" 650; min-height:55vh; }}
   .raw {{ font-family:ui-monospace,Menlo,monospace; font-size:.95rem;
@@ -53,7 +53,7 @@ TEMPLATE = """<!DOCTYPE html>
     <input type="range" id="r" min="0" max="1000" value="650">
     <div>REVL = <span class="val" id="v">650</span> &nbsp; (readable at 650; drag either way to distort)</div>
   </div>
-  <div class="label">Rendered with Souls Keys (what a human sees)</div>
+  <div class="label">Rendered with Souls Only (what a human sees)</div>
   <div class="cipher" id="c">{encoded}</div>
   <div class="label">The raw bytes a keyboard types / a scraper sees</div>
   <div class="raw">{encoded}</div>

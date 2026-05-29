@@ -17,6 +17,6 @@ base/Jost-Variable.ttf
 # Regenerable build artifacts (build via: python -m fontbuild.build_keyboard)
 dist/
 demo/cipher_table.js
-demo/SoulsKeys-VF.ttf
+demo/SoulsOnly-VF.ttf
 demo/qmk/cipher_table.h
 demo/__pycache__/

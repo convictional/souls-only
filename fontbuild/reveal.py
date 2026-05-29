@@ -33,8 +33,8 @@ from fontTools.ttLib import TTFont
 from fontTools.varLib import build as varlib_build
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ALIGNED = os.path.join(ROOT, "dist", "SoulsKeys.ttf")
-OUT_VF = os.path.join(ROOT, "dist", "SoulsKeys-VF.ttf")
+ALIGNED = os.path.join(ROOT, "dist", "SoulsOnly.ttf")
+OUT_VF = os.path.join(ROOT, "dist", "SoulsOnly-VF.ttf")
 
 _AXIS_TAG = "REVL"
 _AXIS_MAX = 1000
