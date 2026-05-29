@@ -1,0 +1,28 @@
+feature liga {
+    sub car_E000 car_E100 by a;
+    sub car_E001 car_E101 by b;
+    sub car_E002 car_E102 by c;
+    sub car_E003 car_E103 by d;
+    sub car_E004 car_E104 by e;
+    sub car_E005 car_E105 by f;
+    sub car_E006 car_E106 by g;
+    sub car_E007 car_E107 by h;
+    sub car_E008 car_E108 by i;
+    sub car_E009 car_E109 by j;
+    sub car_E00A car_E10A by k;
+    sub car_E00B car_E10B by l;
+    sub car_E00C car_E10C by m;
+    sub car_E00D car_E10D by n;
+    sub car_E00E car_E10E by o;
+    sub car_E00F car_E10F by p;
+    sub car_E010 car_E110 by q;
+    sub car_E011 car_E111 by r;
+    sub car_E012 car_E112 by s;
+    sub car_E013 car_E113 by t;
+    sub car_E014 car_E114 by u;
+    sub car_E015 car_E115 by v;
+    sub car_E016 car_E116 by w;
+    sub car_E017 car_E117 by x;
+    sub car_E018 car_E118 by y;
+    sub car_E019 car_E119 by z;
+} liga;
