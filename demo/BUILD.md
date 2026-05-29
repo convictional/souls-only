@@ -121,6 +121,7 @@ macOS (Apple Silicon), with the gotchas that cost time:
    cd ~/qmk_firmware/keyboards/keychron/v1_max/ansi_encoder/keymaps
    cp -r default cipher
    cp <repo>/demo/qmk/cipher_table.h cipher/
+   cp <repo>/demo/qmk/rules.mk cipher/        # VIA_ENABLE = yes
    ```
    Then append the cipher block from `demo/qmk/keymap_cipher.c` (the
    `#include "cipher_table.h"`, the `cipher_on` / `kb_emitting` / `rng_seeded`
@@ -129,7 +130,10 @@ macOS (Apple Silicon), with the gotchas that cost time:
    default keymap does NOT define `process_record_user`, and Keychron's
    `keychron_task.c` calls `process_record_user` BEFORE `process_record_keychron`,
    so returning `true` for non-ciphered keys leaves all Fn keys (BT, RGB, knob,
-   battery) working. No `rules.mk` needed.
+   battery) working. The `rules.mk` (`VIA_ENABLE = yes`) is REQUIRED for the
+   Keychron Launcher (launcher.keychron.com) to recognise the board; the stock
+   `default` keymap omits VIA, so without this rules.mk the Launcher connects but
+   cannot load the keymap.
 
 4. Compile and flash (MCU is STM32F401, bootloader `stm32-dfu`, flashed by
    `dfu-util` which `qmk flash` calls automatically):
