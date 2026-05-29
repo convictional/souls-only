@@ -3,7 +3,8 @@ from cipher.encode import encode
 
 
 def test_letters_become_their_pair():
-    pairs = carriers.ligature_pairs()
+    # encode currently uses each letter's first homophone (v[0]).
+    pairs = {k: v[0] for k, v in carriers.homophone_pairs().items()}
     first, second = pairs["h"]
     assert encode("h") == chr(first) + chr(second)
 

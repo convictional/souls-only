@@ -15,7 +15,7 @@ def test_generate_fea_has_a_rule_per_letter(base_font_path):
 def test_generate_fea_uses_carrier_glyph_names(base_font_path):
     font = TTFont(base_font_path)
     fea = generate_fea(font)
-    first, second = carriers.ligature_pairs()["h"]
+    first, second = carriers.homophone_pairs()["h"][0]
     g1 = carriers.carrier_glyph_name(first)
     g2 = carriers.carrier_glyph_name(second)
     h_glyph = font.getBestCmap()[ord("h")]
