@@ -1,11 +1,12 @@
-"""Phase 3: generate shared-ambiguous fragment glyphs via skia-pathops.
+"""Half-glyph slicing for the Souls Keys font, via skia-pathops.
 
-For each fragment class, ONE canonical left fragment image (clipped from a
-representative letter) is shared by every class member. Each member also gets
-its own right fragment. Left advance = J, right advance = W_L - J, so the two
-halves tile back into the letter's full advance width. Composition is cmap-only
-(see features.py): there is no GSUB rule, so the font tables never link a
-fragment glyph to a letter.
+Every character is sliced into a left and a right half. Shared classes (the
+lowercase bowl a c d e g o q, the lowercase stem m n r u, the uppercase bowl
+O C G Q) reuse ONE canonical left half across the whole class so the left image
+is ambiguous; each character keeps its own right half. Left advance = J, right
+advance = W_L - J, so the two halves tile back into the character's full advance
+width. build_keyboard.py addresses each half by an opaque glyph name and binds
+the 2-char ASCII carrier codes to it with a GSUB ligature.
 
 skia-pathops boolean ops emit cubic curves; TrueType `glyf` stores quadratics,
 so results are routed back through Cu2QuPen on the way into a TTGlyphPen.
@@ -19,26 +20,15 @@ from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib import TTFont
 from fontTools.ttLib.tables._g_l_y_f import Glyph
 
-from cipher.carriers import (
-    FRAGMENT_CLASSES,
-    left_fragment_glyph_name,
-    right_fragment_glyph_name,
-)
-
-# Representative letter whose left half becomes the class's shared left fragment.
-#
-# The "bowl" class shares cleanly: geometric letters genuinely share a near
-# circular left, so clipping 'o' yields a left bowl that reads correctly under
-# a c d e g o q.
-#
-# TODO (deferred hand-tuning): the "stem" class does NOT share cleanly. Clipping
-# any real letter's stem (here 'n') drags in whatever attaches to that stem
-# (n's arch shoulder), so the shared image is not a pure vertical bar and leaves
-# a faint hairline seam on m n r u. Seam-overlap tuning cannot fix this (it just
-# doubles strokes). The real fix is to hand-draw a SYNTHETIC pure-stem glyph for
-# the stem class instead of clipping a letter. Until then, stems render with a
-# minor cosmetic seam.
-CANONICAL = {"bowl": "o", "stem": "n"}
+# TODO (deferred hand-tuning): the lowercase "stem" class (m n r u) does NOT
+# share cleanly. Clipping any real letter's stem (the canonical 'n', see
+# charset.CANONICAL) drags in whatever attaches to that stem (n's arch
+# shoulder), so the shared image is not a pure vertical bar and leaves a faint
+# hairline seam on m n r u. Seam-overlap tuning cannot fix this (it just doubles
+# strokes). The real fix is to hand-draw a SYNTHETIC pure-stem glyph for the
+# stem class instead of clipping a letter. Until then, stems render with a minor
+# cosmetic seam. (The "bowl" classes share cleanly: clipping 'o' / 'O' yields a
+# left bowl that reads correctly across the class.)
 
 # Generous vertical clip bounds (covers ascenders and descenders).
 _YMIN, _YMAX = -400, 1000
@@ -205,26 +195,3 @@ def _install(font: TTFont, name: str, glyph, advance: int) -> None:
     glyph.recalcBounds(glyf)
     lsb = getattr(glyph, "xMin", 0)
     font["hmtx"][name] = (advance, lsb)
-
-
-def add_fragment_glyphs(font: TTFont) -> dict[str, int]:
-    """Add the shared left + per-letter right fragment glyphs. Returns joins.
-
-    Used by the PUA cipher font (class letters only). The keyboard font reuses
-    the same left_half_glyph / right_half_glyph helpers for all letters.
-    """
-    base_cmap = font.getBestCmap()
-    joins: dict[str, int] = {}
-    for cls, members in FRAGMENT_CLASSES.items():
-        join = _join_for_class(font["hmtx"], base_cmap, members)
-        joins[cls] = join
-        # Shared left fragment: the canonical letter's left half.
-        glyph, adv = left_half_glyph(font, CANONICAL[cls], join)
-        _install(font, left_fragment_glyph_name(cls), glyph, adv)
-        # Per-letter right fragments.
-        for letter in members:
-            glyph, adv = right_half_glyph(font, letter, join)
-            _install(font, right_fragment_glyph_name(letter), glyph, adv)
-
-    font.setGlyphOrder(list(font["glyf"].glyphOrder))
-    return joins

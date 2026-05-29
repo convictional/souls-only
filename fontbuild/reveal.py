@@ -1,13 +1,16 @@
-"""Phase 4: build the in-font scatter-to-align reveal as a variable font.
+"""Build the in-font scatter-to-align reveal as a variable font.
 
-The reveal lives entirely inside the font on a custom `REVL` axis:
+The reveal lives entirely inside the font on a custom `REVL` axis, with three
+masters:
   * at REVL = 0 (the default, so the safe state is illegible) every glyph's
     outline is scattered: shrunk and randomly displaced, so the line reads as
     noise.
-  * at REVL = 1000 the outlines interpolate back to the true cipher glyphs and
-    the text assembles.
+  * at REVL = _ALIGNED_AT (the middle of the axis) the outlines interpolate back
+    to the true cipher glyphs and the text assembles.
+  * at REVL = 1000 the outlines scatter again into a different distortion, so
+    pushing the control all the way up does not reveal the text either.
 
-This is the outline-variation (gvar) path from the spec: two masters that differ
+This is the outline-variation (gvar) path from the spec: masters that differ
 only in glyph coordinates, interpolated by fontTools.varLib. A page binds one
 control to the axis; no reveal logic lives in page code.
 
@@ -30,8 +33,8 @@ from fontTools.ttLib import TTFont
 from fontTools.varLib import build as varlib_build
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ALIGNED = os.path.join(ROOT, "dist", "SoulsOnly.ttf")
-OUT_VF = os.path.join(ROOT, "dist", "SoulsOnly-VF.ttf")
+ALIGNED = os.path.join(ROOT, "dist", "SoulsKeys.ttf")
+OUT_VF = os.path.join(ROOT, "dist", "SoulsKeys-VF.ttf")
 
 _AXIS_TAG = "REVL"
 _AXIS_MAX = 1000
