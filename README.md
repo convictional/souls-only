@@ -25,10 +25,10 @@ project decouples them:
 Because two codepoints collapse into one glyph, the stored codepoint count and
 the rendered glyph count deliberately diverge.
 
-## Current status: Phase 3 complete
+## Current status: Phase 4 complete (all phases built)
 
-Decoupling, homophones, zero-width noise, and shared-ambiguous fragments are all
-working and verified:
+Decoupling, homophones, zero-width noise, shared-ambiguous fragments, and the
+in-font scatter-to-align reveal are all working and verified:
 
 - lowercase a-z, with frequency-tiered homophones (6 carriers for the most
   common letters down to 1 for the rarest), realized as distinct glyph IDs with
@@ -53,9 +53,24 @@ class `m n r u` does not: a stem clipped from a real letter is not a pure bar,
 so those letters carry a faint hairline seam. The deferred fix is a hand-drawn
 synthetic shared-stem glyph (see the TODO in `fontbuild/fragments.py`).
 
-Not yet implemented: the in-font scatter-to-align reveal on a variable axis
-(Phase 4), and full case/digit/punctuation coverage. See the integrated design
-spec under `docs/superpowers/specs/`.
+The reveal (Phase 4) is a variable font built from two masters on a custom
+`REVL` axis: at `REVL` = 0 (the default, so the safe state is illegible) every
+glyph is warped out of recognition by a random non-uniform transform plus
+per-control-point jitter; at `REVL` = 1000 every point interpolates back to its
+true position and the text assembles. The entire decode and reveal mechanism
+lives in the font (`cmap`, `GSUB`, fragment composition, and `fvar`/`gvar`); a
+page contributes only the single `REVL` axis value via one control. The axis is
+unnamed and there is no legible named instance, so the reveal value is not
+handed to an automated reader for free.
+
+Honest limit (restated from the spec): the `REVL` value is one bounded number,
+so an automated attacker can sweep axis values and OCR the legible frame. This
+layer is the most portable and self-contained reveal, and the weakest against
+automated vision. It is a statement device, scoped as such.
+
+Not yet implemented: full case/digit/punctuation coverage, and the GPOS
+position-variation refinement of the reveal (this build uses outline variation).
+See the integrated design spec under `docs/superpowers/specs/`.
 
 ## Layout
 
@@ -67,10 +82,14 @@ cipher/decode.py       font tables -> plaintext (round-trip oracle)
 fontbuild/glyphs.py    add blank zero-width carrier glyphs to the base
 fontbuild/features.py  cmap population + GSUB liga compilation
 fontbuild/build_font.py  orchestrate the pipeline -> dist/SoulsOnly.ttf
-tools/make_preview.py  generate dist/preview.html
+fontbuild/fragments.py  shared-ambiguous half-glyph generation (skia-pathops)
+fontbuild/reveal.py    build the REVL variable reveal font from two masters
+tools/make_preview.py  generate dist/preview.html (static cipher preview)
+tools/make_reveal_preview.py  generate dist/reveal.html (the REVL slider)
 tests/                 pytest suite (run via python -m pytest)
 base/Jost-Regular.ttf  instanced OFL base font (glyph outlines)
-dist/SoulsOnly.ttf     the built cipher font
+dist/SoulsOnly.ttf     the built cipher font (static)
+dist/SoulsOnly-VF.ttf  the variable reveal font (REVL axis)
 ```
 
 ## Setup and run
@@ -80,9 +99,12 @@ python3 -m venv .venv
 ./.venv/bin/pip install -r requirements.txt
 bash scripts/fetch_base_font.sh        # if base/Jost-Regular.ttf is missing
 
-./.venv/bin/python -m fontbuild.build_font   # build the font
-./.venv/bin/python -m pytest                 # run the suite
-./.venv/bin/python tools/make_preview.py     # regenerate the preview
+./.venv/bin/python -m fontbuild.build_font    # build the static cipher font
+./.venv/bin/python -m fontbuild.reveal        # build the REVL variable font
+./.venv/bin/python -m pytest                  # run the suite
+./.venv/bin/python tools/make_preview.py         # static cipher preview
+./.venv/bin/python tools/make_reveal_preview.py  # the REVL scatter-reveal slider
+# then: python -m http.server 8753  and open dist/reveal.html
 ```
 
 ## Encode and decode by hand

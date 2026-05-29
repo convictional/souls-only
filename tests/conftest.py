@@ -20,3 +20,13 @@ def built_font_path() -> str:
     build()
     assert os.path.exists(out)
     return out
+
+
+@pytest.fixture(scope="session")
+def built_vf_path(built_font_path) -> str:
+    """Build the variable reveal font once (after the aligned font exists)."""
+    from fontbuild.reveal import OUT_VF, build_reveal
+
+    build_reveal()
+    assert os.path.exists(OUT_VF)
+    return OUT_VF
