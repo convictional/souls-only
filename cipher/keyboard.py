@@ -39,11 +39,6 @@ right_slot = charset.right_slot
 half_slots = charset.half_slots
 half_glyph_name = charset.half_glyph_name
 
-# Compatibility shim: encode/decode below still operate on lowercase-only text
-# and reference the old import names. The next task rewrites them; until then
-# keep them importable against the full charset module.
-ALPHABET = charset.LOWER
-fragment_class_of = charset.class_of
 
 
 def _all_codes() -> list[str]:
@@ -71,9 +66,9 @@ def right_codes(letter: str) -> list[str]:
     return slot_codes()[right_slot(letter)]
 
 
-def code_to_letter() -> dict[str, str]:
-    """Decoder map: a RIGHT code identifies the letter (right half is unique)."""
-    return {code: letter for letter in ALPHABET for code in right_codes(letter)}
+def code_to_char() -> dict[str, str]:
+    """Decoder map: a RIGHT code identifies the character (right half is unique)."""
+    return {code: ch for ch in charset.CHARSET for code in right_codes(ch)}
 
 
 def carrier_glyph_name(ch: str) -> str:
@@ -82,12 +77,17 @@ def carrier_glyph_name(ch: str) -> str:
 
 
 def encode(text: str, rng: random.Random | None = None) -> str:
-    """Plaintext -> ASCII code stream. Each letter -> random left+right codes."""
+    """Plaintext -> stream. Each printable char and space -> random left+right
+    codes (4 carrier chars). Newline -> a real newline plus 3 pad chars. Other
+    characters (tab, non-ASCII) pass through unchanged."""
     if rng is None:
         rng = random.Random()
     out: list[str] = []
     for ch in text:
-        if ch in ALPHABET:
+        if ch == "\n":
+            out.append("\n")
+            out.append(charset.PAD * 3)
+        elif ch in charset.CHARSET:
             out.append(rng.choice(left_codes(ch)))
             out.append(rng.choice(right_codes(ch)))
         else:
@@ -96,21 +96,23 @@ def encode(text: str, rng: random.Random | None = None) -> str:
 
 
 def decode(encoded: str) -> str:
-    """ASCII code stream -> plaintext, using the cipher tables (the font carries
-    no code-to-letter mapping, by design)."""
-    to_letter = code_to_letter()
+    """Stream -> plaintext. Pads are stripped; real newlines pass through; a
+    right code identifies its character via the cipher tables."""
+    to_char = code_to_char()
     codeset = set(CODE_ALPHABET)
+    cleaned = encoded.replace(charset.PAD, "")  # drop pad chars
     out: list[str] = []
-    i, n = 0, len(encoded)
+    i, n = 0, len(cleaned)
     while i < n:
-        # A letter is a left code then a right code, each CODE_LEN chars.
-        if encoded[i] in codeset and i + 2 * CODE_LEN <= n:
-            right_code = encoded[i + CODE_LEN:i + 2 * CODE_LEN]
-            letter = to_letter.get(right_code)
-            if letter is not None and all(c in codeset for c in encoded[i:i + 2 * CODE_LEN]):
-                out.append(letter)
+        ch = cleaned[i]
+        if ch in codeset and i + 2 * CODE_LEN <= n \
+                and all(c in codeset for c in cleaned[i:i + 2 * CODE_LEN]):
+            right_code = cleaned[i + CODE_LEN:i + 2 * CODE_LEN]
+            mapped = to_char.get(right_code)
+            if mapped is not None:
+                out.append(mapped)
                 i += 2 * CODE_LEN
                 continue
-        out.append(encoded[i])
+        out.append(ch)
         i += 1
     return "".join(out)

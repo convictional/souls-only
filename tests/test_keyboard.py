@@ -10,9 +10,11 @@ from cipher import keyboard as kb
 
 SAMPLES = [
     "the quick brown fox jumps over the lazy dog",
+    "The Quick Brown Fox 123",
+    "Hello, World! @ #5 & (you) = ok?",
     "souls only",
-    "ocean morning",
-    "abcdefghijklmnopqrstuvwxyz",
+    "ALL CAPS AND 0123456789",
+    "sym: !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~",
 ]
 
 
@@ -52,9 +54,32 @@ def test_code_space_covers_all_slots():
 
 
 def test_roundtrip_pure_cipher():
+    import random
     for s in SAMPLES:
         enc = kb.encode(s, rng=random.Random(1))
         assert kb.decode(enc) == s
+
+
+def test_roundtrip_with_spaces_and_newlines():
+    import random
+    text = "Hello World\nLine two here\nThird 99!"
+    enc = kb.encode(text, rng=random.Random(2))
+    assert kb.decode(enc) == text
+
+
+def test_space_is_encoded_as_four_chars():
+    import random
+    enc = kb.encode(" ", rng=random.Random(3))
+    assert len(enc) == 2 * kb.CODE_LEN
+    assert " " not in enc
+
+
+def test_newline_is_real_newline_plus_three_pads():
+    import random
+    from cipher import charset
+    enc = kb.encode("\n", rng=random.Random(4))
+    assert enc == "\n" + charset.PAD * 3
+    assert kb.decode(enc) == "\n"
 
 
 def test_homophones_vary_across_occurrences():
