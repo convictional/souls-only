@@ -73,6 +73,13 @@ def half_slots() -> list[str]:
     return lefts + rights
 
 
+_SLOTS = half_slots()
+_SLOT_INDEX = {slot: i for i, slot in enumerate(_SLOTS)}
+
+
 def half_glyph_name(slot: str) -> str:
     """Opaque glyph name for a slot (no character leaked)."""
-    return f"h_{half_slots().index(slot)}"
+    try:
+        return f"h_{_SLOT_INDEX[slot]}"
+    except KeyError:
+        raise KeyError(f"unknown half-glyph slot {slot!r}")

@@ -52,3 +52,4 @@ def test_half_slots_unique_and_cover_charset():
 def test_pad_char_is_outside_normal_text():
     assert charset.PAD == "\\"
     assert charset.PAD not in charset.PRINTABLE_CODES_OK
+    assert '"' not in charset.PRINTABLE_CODES_OK
