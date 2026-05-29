@@ -29,7 +29,7 @@
     font-family: "Souls Keys", serif;
     font-variant-ligatures: common-ligatures;
     font-feature-settings: "liga" 1;
-    font-variation-settings: "REVL" 1000;
+    font-variation-settings: "REVL" 650;
     font-size: 2.1rem; line-height: 1.5; min-height: 7rem;
     outline: none; white-space: pre-wrap; word-break: break-word;
   }
@@ -72,8 +72,8 @@
     </label>
     <div class="revl">
       <span class="sub">REVL</span>
-      <input type="range" id="revl" min="0" max="1000" value="1000">
-      <span class="v" id="revlv">1000</span>
+      <input type="range" id="revl" min="0" max="1000" value="650">
+      <span class="v" id="revlv">650</span>
     </div>
   </div>
   <p class="sub">With the real keyboard, turn Simulate <b>off</b> and press
@@ -101,25 +101,48 @@
   const sync = () => { raw.textContent = readable.textContent || ""; };
   readable.addEventListener("input", sync);
 
-  // Simulate mode: encode each typed letter the way the cipher keyboard does
-  // (a random left code + a random right code). Off when using the real
-  // keyboard, which already emits codes.
+  const CODE_LEN = 2;          // chars per code
+  const UNIT = 2 * CODE_LEN;   // 4 stream chars per logical character
+
+  function insert(text) { document.execCommand("insertText", false, text); }
+  function moveCaret(dir, n) {
+    const sel = window.getSelection();
+    for (let i = 0; i < n; i++) sel.modify("move", dir, "character");
+  }
+
+  // Simulate mode: reproduce exactly what the cipher keyboard emits.
   readable.addEventListener("keydown", (e) => {
     if (!simulate.checked) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;   // leave shortcuts alone
-    if (e.key.length !== 1) return;                    // ignore Enter, arrows...
-    const code = cipherEncodeChar(e.key.toLowerCase());
-    if (!code) return;                                 // non-letters pass through
-    e.preventDefault();
-    document.execCommand("insertText", false, code);
-    sync();
+
+    if (e.key === "Backspace") {                       // delete one logical char
+      e.preventDefault();
+      for (let i = 0; i < UNIT; i++) document.execCommand("delete");
+      sync(); return;
+    }
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+      e.preventDefault();
+      moveCaret(e.key === "ArrowLeft" ? "left" : "right", UNIT);
+      return;
+    }
+    if (e.key === "Enter") {                            // newline + 3 pad
+      e.preventDefault();
+      insert("\n" + KB_PAD.repeat(3));
+      sync(); return;
+    }
+    if (e.key.length === 1) {                           // a printable char or space
+      const code = cipherEncodeChar(e.key);
+      if (!code) return;                                // unsupported -> pass through
+      e.preventDefault();
+      insert(code);
+      sync(); return;
+    }
   });
 
   revl.addEventListener("input", () => {
     readable.style.fontVariationSettings = '"REVL" ' + revl.value;
     revlv.textContent = revl.value;
   });
-
   document.getElementById("clear").addEventListener("click", () => {
     readable.textContent = ""; sync(); readable.focus();
   });
