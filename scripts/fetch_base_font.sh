@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-# Fetch the OFL base font (Inter, variable) and instance it to a static Regular.
-# The variable font is gitignored; the instanced base/Inter-Regular.ttf is what
-# build_font.py reads. Run from the repo root.
+# Fetch the OFL base font (Jost, geometric single-story) and instance it to a
+# static Regular. The variable font is gitignored; build reads
+# base/Jost-Regular.ttf. Run from the repo root.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 VENV="$ROOT/.venv/bin"
-URL="https://github.com/google/fonts/raw/main/ofl/inter/Inter%5Bopsz%2Cwght%5D.ttf"
+URL="https://github.com/google/fonts/raw/main/ofl/jost/Jost%5Bwght%5D.ttf"
 
 mkdir -p "$ROOT/base"
-echo "downloading Inter (OFL) ..."
-curl -sL -o "$ROOT/base/Inter-Variable.ttf" "$URL"
+echo "downloading Jost (OFL) ..."
+curl -sL -o "$ROOT/base/Jost-Variable.ttf" "$URL"
 
 echo "instancing to static Regular ..."
-"$VENV/fonttools" varLib.instancer "$ROOT/base/Inter-Variable.ttf" \
-  wght=400 opsz=14 -o "$ROOT/base/Inter-Regular.ttf"
+"$VENV/fonttools" varLib.instancer "$ROOT/base/Jost-Variable.ttf" \
+  wght=400 -o "$ROOT/base/Jost-Regular.ttf"
 
-echo "done: base/Inter-Regular.ttf"
+echo "done: base/Jost-Regular.ttf"
