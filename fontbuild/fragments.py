@@ -25,6 +25,18 @@ from cipher.carriers import (
 )
 
 # Representative letter whose left half becomes the class's shared left fragment.
+#
+# The "bowl" class shares cleanly: geometric letters genuinely share a near
+# circular left, so clipping 'o' yields a left bowl that reads correctly under
+# a c d e g o q.
+#
+# TODO (deferred hand-tuning): the "stem" class does NOT share cleanly. Clipping
+# any real letter's stem (here 'n') drags in whatever attaches to that stem
+# (n's arch shoulder), so the shared image is not a pure vertical bar and leaves
+# a faint hairline seam on m n r u. Seam-overlap tuning cannot fix this (it just
+# doubles strokes). The real fix is to hand-draw a SYNTHETIC pure-stem glyph for
+# the stem class instead of clipping a letter. Until then, stems render with a
+# minor cosmetic seam.
 CANONICAL = {"bowl": "o", "stem": "n"}
 
 # Generous vertical clip bounds (covers ascenders and descenders).

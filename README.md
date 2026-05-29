@@ -48,8 +48,10 @@ working and verified:
   plaintext
 
 Known limit (by design): the shared left fragment is a single compromise image
-reused across a class, so letters whose own left half differs from the canonical
-one render imperfectly until hand-tuned. That tuning is deferred.
+reused across a class. The bowl class `a c d e g o q` shares cleanly. The stem
+class `m n r u` does not: a stem clipped from a real letter is not a pure bar,
+so those letters carry a faint hairline seam. The deferred fix is a hand-drawn
+synthetic shared-stem glyph (see the TODO in `fontbuild/fragments.py`).
 
 Not yet implemented: the in-font scatter-to-align reveal on a variable axis
 (Phase 4), and full case/digit/punctuation coverage. See the integrated design
