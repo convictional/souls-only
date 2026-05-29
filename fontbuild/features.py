@@ -46,6 +46,8 @@ def generate_fea(font: TTFont) -> str:
 
 def compile_features(font: TTFont, fea_path: str) -> None:
     """Replace the base OT layout with only our cipher feature, from a FEA file."""
+    # The base font's GPOS (kerning) is intentionally stripped here; phase 3
+    # will rebuild GPOS for fragment seam math.
     for tag in ("GSUB", "GPOS"):
         if tag in font:
             del font[tag]

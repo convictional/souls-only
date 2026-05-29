@@ -7,6 +7,12 @@ from fontbuild.build_font import build
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
+@pytest.fixture
+def base_font_path() -> str:
+    """Absolute path to the static Jost base font, cwd-independent."""
+    return os.path.join(ROOT, "base", "Jost-Regular.ttf")
+
+
 @pytest.fixture(scope="session")
 def built_font_path() -> str:
     """Build the font once per test session and return its path."""

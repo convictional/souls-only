@@ -4,8 +4,8 @@ from cipher import carriers
 from fontbuild.glyphs import add_blank_carrier_glyphs
 
 
-def test_carrier_glyphs_added_and_zero_width():
-    font = TTFont("base/Jost-Regular.ttf")
+def test_carrier_glyphs_added_and_zero_width(base_font_path):
+    font = TTFont(base_font_path)
     add_blank_carrier_glyphs(font)
     glyf = font["glyf"]
     hmtx = font["hmtx"]
@@ -16,8 +16,8 @@ def test_carrier_glyphs_added_and_zero_width():
         assert hmtx[name][0] == 0  # zero advance width
 
 
-def test_glyph_order_stays_consistent():
-    font = TTFont("base/Jost-Regular.ttf")
+def test_glyph_order_stays_consistent(base_font_path):
+    font = TTFont(base_font_path)
     add_blank_carrier_glyphs(font)
     glyf = font["glyf"]
     # maxp recalc asserts len(glyphOrder) == len(glyphs); exercise it.

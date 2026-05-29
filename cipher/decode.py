@@ -49,6 +49,9 @@ def decode(encoded: str, font_path: str) -> str:
     i, n = 0, len(encoded)
     while i < n:
         cp = ord(encoded[i])
+        # 0xE000..0xF8FF is the Unicode BMP Private Use Area (a standard
+        # constant). decode.py reverses from the font alone, so it does not
+        # import the carrier base from cipher.carriers.
         if 0xE000 <= cp <= 0xF8FF and i + 1 < n:
             pair = (cp, ord(encoded[i + 1]))
             letter = table.get(pair)
