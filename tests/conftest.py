@@ -30,3 +30,24 @@ def built_vf_path(built_font_path) -> str:
     build_reveal()
     assert os.path.exists(OUT_VF)
     return OUT_VF
+
+
+@pytest.fixture(scope="session")
+def built_keys_path() -> str:
+    """Build the keyboard-typeable static font once."""
+    from fontbuild.build_keyboard import OUT_FONT, build
+
+    build()
+    assert os.path.exists(OUT_FONT)
+    return OUT_FONT
+
+
+@pytest.fixture(scope="session")
+def built_keys_vf_path(built_keys_path) -> str:
+    """Build the keyboard reveal (REVL) font once."""
+    from fontbuild.build_keyboard import OUT_FONT, OUT_VF
+    from fontbuild.reveal import build_reveal
+
+    build_reveal(aligned_path=OUT_FONT, out_vf=OUT_VF)
+    assert os.path.exists(OUT_VF)
+    return OUT_VF

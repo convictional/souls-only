@@ -113,36 +113,61 @@ def _join_for_class(hmtx, base_cmap, members: str) -> int:
     return int(min(advances) * _JOIN_FRACTION)
 
 
-def add_fragment_glyphs(font: TTFont) -> dict[str, int]:
-    """Add the shared left + per-letter right fragment glyphs. Returns joins."""
-    glyf = font["glyf"]
+def own_join(font: TTFont, letter: str) -> int:
+    """Join coordinate for slicing a single letter into its own two halves."""
     hmtx = font["hmtx"]
-    glyphset = font.getGlyphSet()
-    base_cmap = font.getBestCmap()
+    width = hmtx[font.getBestCmap()[ord(letter)]][0]
+    return int(width * _JOIN_FRACTION)
 
+
+def left_half_glyph(font: TTFont, letter: str, join: int,
+                    overlap: int = _SEAM_OVERLAP):
+    """Left half of `letter` clipped to [0, join + overlap]. Returns (glyph, adv).
+
+    Reused for both the shared class left (pass the canonical letter) and a
+    letter's own left half.
+    """
+    glyphset = font.getGlyphSet()
+    g = font.getBestCmap()[ord(letter)]
+    path = _clip(_glyph_path(glyphset, g), 0, join + overlap)
+    return _path_to_ttglyph(path), join
+
+
+def right_half_glyph(font: TTFont, letter: str, join: int,
+                     overlap: int = _SEAM_OVERLAP):
+    """Right half of `letter` clipped to [join - overlap, W], shifted left by
+    join. Returns (glyph, advance = W - join)."""
+    glyphset = font.getGlyphSet()
+    hmtx = font["hmtx"]
+    g = font.getBestCmap()[ord(letter)]
+    width = hmtx[g][0]
+    path = _clip(_glyph_path(glyphset, g), join - overlap, width)
+    return _path_to_ttglyph(path, dx=-join), width - join
+
+
+def _install(font: TTFont, name: str, glyph, advance: int) -> None:
+    font["glyf"][name] = glyph
+    font["hmtx"][name] = (advance, 0)
+
+
+def add_fragment_glyphs(font: TTFont) -> dict[str, int]:
+    """Add the shared left + per-letter right fragment glyphs. Returns joins.
+
+    Used by the PUA cipher font (class letters only). The keyboard font reuses
+    the same left_half_glyph / right_half_glyph helpers for all letters.
+    """
+    base_cmap = font.getBestCmap()
     joins: dict[str, int] = {}
     for cls, members in FRAGMENT_CLASSES.items():
-        join = _join_for_class(hmtx, base_cmap, members)
+        join = _join_for_class(font["hmtx"], base_cmap, members)
         joins[cls] = join
-
-        # Shared left fragment: canonical letter clipped to [0, join + overlap].
-        # Advance stays J; the extra ink past J overlaps the right half's ink.
-        canon_glyph = base_cmap[ord(CANONICAL[cls])]
-        left = _clip(_glyph_path(glyphset, canon_glyph), 0, join + _SEAM_OVERLAP)
-        lname = left_fragment_glyph_name(cls)
-        glyf[lname] = _path_to_ttglyph(left)
-        hmtx[lname] = (join, 0)
-
-        # Per-letter right fragment: letter clipped to [join - overlap, W],
-        # shifted left by join. Advance stays W - J; its ink starts a touch
-        # before 0 so it overlaps the shared left half across the seam.
+        # Shared left fragment: the canonical letter's left half.
+        glyph, adv = left_half_glyph(font, CANONICAL[cls], join)
+        _install(font, left_fragment_glyph_name(cls), glyph, adv)
+        # Per-letter right fragments.
         for letter in members:
-            g = base_cmap[ord(letter)]
-            width = hmtx[g][0]
-            right = _clip(_glyph_path(glyphset, g), join - _SEAM_OVERLAP, width)
-            rname = right_fragment_glyph_name(letter)
-            glyf[rname] = _path_to_ttglyph(right, dx=-join)
-            hmtx[rname] = (width - join, 0)
+            glyph, adv = right_half_glyph(font, letter, join)
+            _install(font, right_fragment_glyph_name(letter), glyph, adv)
 
-    font.setGlyphOrder(list(glyf.glyphOrder))
+    font.setGlyphOrder(list(font["glyf"].glyphOrder))
     return joins
