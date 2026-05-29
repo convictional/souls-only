@@ -43,15 +43,15 @@ TEMPLATE = """<!DOCTYPE html>
             color:#888; margin:1.4rem 0 .4rem; }}
   .cipher {{ font-family:"Souls Keys VF"; font-size:1.7rem; line-height:1.7;
              white-space:pre-wrap; font-feature-settings:"liga" 1;
-             font-variation-settings:"REVL" 0; min-height:55vh; }}
+             font-variation-settings:"REVL" 650; min-height:55vh; }}
   .raw {{ font-family:ui-monospace,Menlo,monospace; font-size:.95rem;
           background:#f4f4f4; padding:.75rem; border-radius:6px;
           word-break:break-all; color:#555; }}
   .note {{ font-size:.85rem; color:#666; margin-top:1.5rem; }}
 </style></head><body>
   <div class="controls">
-    <input type="range" id="r" min="0" max="1000" value="0">
-    <div>REVL = <span class="val" id="v">0</span> &nbsp; (drag right to reveal)</div>
+    <input type="range" id="r" min="0" max="1000" value="650">
+    <div>REVL = <span class="val" id="v">650</span> &nbsp; (readable at 650; drag either way to distort)</div>
   </div>
   <div class="label">Rendered with Souls Keys (what a human sees)</div>
   <div class="cipher" id="c">{encoded}</div>

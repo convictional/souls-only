@@ -32,20 +32,23 @@ def test_no_named_instance_sits_at_the_legible_end(built_vf_path):
         assert inst.coordinates.get("REVL", 0) < 1000
 
 
-def test_aligned_end_restores_true_outlines(built_vf_path, built_font_path):
+def test_readable_point_restores_true_outlines(built_vf_path, built_font_path):
+    # The text is readable in the MIDDLE of the axis (REVL=650), not the top.
+    from fontbuild.reveal import _ALIGNED_AT
     aligned = TTFont(built_font_path)
-    inst = instantiateVariableFont(TTFont(built_vf_path), {"REVL": 1000},
+    inst = instantiateVariableFont(TTFont(built_vf_path), {"REVL": _ALIGNED_AT},
                                    inplace=False)
-    # Real letter, fragment left, and fragment right should all restore exactly.
     for g in ("o", "a", "fragL_0", "fragR_0"):
         assert _close(_bounds(inst, g), _bounds(aligned, g)), g
 
 
-def test_scattered_end_differs_from_true(built_vf_path, built_font_path):
+def test_both_ends_differ_from_true(built_vf_path, built_font_path):
+    # Distorted at BOTH ends: scattered toward 0, a different distortion at max.
     aligned = TTFont(built_font_path)
-    inst0 = instantiateVariableFont(TTFont(built_vf_path), {"REVL": 0},
-                                    inplace=False)
-    assert not _close(_bounds(inst0, "o"), _bounds(aligned, "o"))
+    for val in (0, 1000):
+        inst = instantiateVariableFont(TTFont(built_vf_path), {"REVL": val},
+                                       inplace=False)
+        assert not _close(_bounds(inst, "o"), _bounds(aligned, "o")), val
 
 
 def test_reveal_preserves_cipher_tables(built_vf_path):

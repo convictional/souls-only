@@ -35,6 +35,11 @@ OUT_VF = os.path.join(ROOT, "dist", "SoulsOnly-VF.ttf")
 
 _AXIS_TAG = "REVL"
 _AXIS_MAX = 1000
+# The text is fully readable at the MIDDLE of the axis, not the top: outlines
+# are the true glyphs at REVL = _ALIGNED_AT, and distort in BOTH directions
+# (scattered toward 0, a different distortion toward 1000). So a reader finds a
+# precise sweet spot rather than just cranking to the max.
+_ALIGNED_AT = 650
 # Scattered-end intensity. The glyph is warped by a random non-uniform 2x2
 # matrix (anisotropic squash, shear, and possible flip, not just rotation),
 # each control point is then jittered independently so the outline itself is
@@ -46,7 +51,8 @@ _BASE_SCALE = 1.35  # scattered glyphs stay large (bigger than the true glyph)
 _DIAG = (0.7, 1.3)  # per-axis stretch factor magnitude (random sign -> flips)
 _SHEAR = 0.8        # max shear each way
 _JITTER = 190       # per-control-point random displacement (font units)
-_SEED = 20260529
+_SEED = 20260529    # scatter at REVL = 0
+_SEED2 = 71727374   # a DIFFERENT distortion at REVL = max (overshoot)
 
 
 def _scatter_simple(glyph, glyf, rng, dx, dy):
@@ -72,11 +78,14 @@ def _scatter_simple(glyph, glyf, rng, dx, dy):
     glyph.recalcBounds(glyf)
 
 
-def _make_scattered(aligned_path: str) -> TTFont:
-    """Return a copy of the aligned font with every inked glyph scattered."""
+def _make_scattered(aligned_path: str, seed: int) -> TTFont:
+    """Return a copy of the aligned font with every inked glyph scattered.
+
+    `seed` selects the random distortion, so two different seeds give two
+    different distorted masters (one for each end of the axis)."""
     scattered = TTFont(aligned_path)  # reload a clean copy from disk
     glyf = scattered["glyf"]
-    rng = random.Random(_SEED)
+    rng = random.Random(seed)
     for name in scattered.getGlyphOrder():
         glyph = glyf[name]
         dx = rng.uniform(-_SCATTER_DX, _SCATTER_DX)
@@ -92,14 +101,19 @@ def _make_scattered(aligned_path: str) -> TTFont:
 
 
 def build_reveal(aligned_path: str = ALIGNED, out_vf: str = OUT_VF) -> None:
-    """Wrap any static cipher font in the REVL scatter-to-align variable axis."""
+    """Wrap any static cipher font in the REVL axis: scattered at 0, the true
+    glyphs at _ALIGNED_AT (the readable sweet spot), a different distortion at
+    the max. Three masters; the default (0) stays illegible."""
     aligned = TTFont(aligned_path)
-    scattered = _make_scattered(aligned_path)
+    scattered = _make_scattered(aligned_path, _SEED)
+    distorted = _make_scattered(aligned_path, _SEED2)
 
-    scattered_path = os.path.join(ROOT, "dist", "_master_scattered.ttf")
-    master_aligned_path = os.path.join(ROOT, "dist", "_master_aligned.ttf")
-    scattered.save(scattered_path)
-    aligned.save(master_aligned_path)
+    scatter_path = os.path.join(ROOT, "dist", "_master_scatter.ttf")
+    aligned_master_path = os.path.join(ROOT, "dist", "_master_aligned.ttf")
+    distort_path = os.path.join(ROOT, "dist", "_master_distort.ttf")
+    scattered.save(scatter_path)
+    aligned.save(aligned_master_path)
+    distorted.save(distort_path)
 
     doc = DesignSpaceDocument()
     axis = AxisDescriptor()
@@ -110,22 +124,22 @@ def build_reveal(aligned_path: str = ALIGNED, out_vf: str = OUT_VF) -> None:
     axis.default = 0  # default to the illegible end
     doc.addAxis(axis)
 
-    src_scatter = SourceDescriptor()
-    src_scatter.path = scattered_path
-    src_scatter.location = {"Reveal": 0}
-    doc.addSource(src_scatter)
-
-    src_aligned = SourceDescriptor()
-    src_aligned.path = master_aligned_path
-    src_aligned.location = {"Reveal": _AXIS_MAX}
-    doc.addSource(src_aligned)
+    for path, loc in (
+        (scatter_path, 0),
+        (aligned_master_path, _ALIGNED_AT),
+        (distort_path, _AXIS_MAX),
+    ):
+        src = SourceDescriptor()
+        src.path = path
+        src.location = {"Reveal": loc}
+        doc.addSource(src)
 
     vf, _, _ = varlib_build(doc)
     vf.save(out_vf)
-    os.remove(scattered_path)
-    os.remove(master_aligned_path)
+    for p in (scatter_path, aligned_master_path, distort_path):
+        os.remove(p)
     print(f"wrote {out_vf}")
-    print(f"  axis {_AXIS_TAG} 0..{_AXIS_MAX}, default 0 (scattered)")
+    print(f"  axis {_AXIS_TAG} 0..{_AXIS_MAX}, default 0; readable at {_ALIGNED_AT}")
 
 
 if __name__ == "__main__":

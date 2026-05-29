@@ -152,9 +152,11 @@ def test_keyboard_reveal_axis(built_keys_vf_path):
 
 
 def test_keyboard_reveal_aligned_restores(built_keys_vf_path, built_keys_path):
+    # Readable in the middle of the axis (REVL=650), not the top.
+    from fontbuild.reveal import _ALIGNED_AT
     aligned = TTFont(built_keys_path)
-    inst = instantiateVariableFont(TTFont(built_keys_vf_path), {"REVL": 1000},
-                                   inplace=False)
+    inst = instantiateVariableFont(TTFont(built_keys_vf_path),
+                                   {"REVL": _ALIGNED_AT}, inplace=False)
 
     def bounds(font, g):
         pen = BoundsPen(font.getGlyphSet())
