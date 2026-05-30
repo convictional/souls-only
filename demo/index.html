@@ -24,14 +24,16 @@
   .label { font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; color: #7c828d; margin-bottom: .6rem; }
   .label b { color: #c7ccd6; }
 
-  /* What a human sees: the Souls Only VF font, ligatures on, on the REVL axis. */
+  /* What a human sees: the Souls Only VF font, ligatures on, on the REVL axis.
+     The text itself IS the reveal control: click-drag across it to scrub REVL. */
   #readable {
     font-family: "Souls Only VF", serif;
     font-variant-ligatures: common-ligatures;
     font-feature-settings: "liga" 1;
-    font-variation-settings: "REVL" 650;
+    font-variation-settings: "REVL" 0;
     font-size: 2.1rem; line-height: 1.5; min-height: 7rem;
     outline: none; white-space: pre-wrap; word-break: break-word;
+    cursor: ew-resize; touch-action: none;
   }
   #readable.plain {
     font-family: ui-monospace, monospace; font-size: 1.2rem;
@@ -47,9 +49,14 @@
   .controls { display: flex; gap: .75rem; flex-wrap: wrap; align-items: center; }
   button { background: #2a2f3c; color: #e8e8ea; border: 1px solid #3a4150; border-radius: 8px; padding: .5rem .9rem; font-size: .9rem; cursor: pointer; }
   button:hover { background: #333a49; }
-  .revl { display: flex; align-items: center; gap: .6rem; flex: 1 1 18rem; }
-  .revl input[type=range] { flex: 1; }
-  .revl .v { font-family: ui-monospace, monospace; color: #9aa0aa; min-width: 3.5ch; }
+  .reveal { display: flex; align-items: center; gap: .6rem; }
+  .reveal .track { width: 160px; height: 5px; border-radius: 3px; background: #262a35; position: relative; overflow: hidden; }
+  .reveal .prog { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, #2a3bb8, #5b7bff); }
+  .reveal .v { font-family: ui-monospace, monospace; color: #9aa0aa; min-width: 3.5ch; }
+  #scrub-tip { position: fixed; z-index: 50; pointer-events: none; display: none;
+    background: #1b1e26; color: #e8e8ea; border: 1px solid #3a4150; border-radius: 6px;
+    padding: .2rem .5rem; font: 12px/1.2 -apple-system, system-ui, sans-serif;
+    white-space: nowrap; transform: translateX(-50%); box-shadow: 0 2px 8px #0007; }
   kbd { background: #21242d; border: 1px solid #3a4150; border-bottom-width: 2px; border-radius: 5px; padding: .05rem .4rem; font-size: .85em; }
 </style>
 </head>
@@ -59,8 +66,8 @@
     <p class="sub">
       Type into the left box with the cipher keyboard. You read real words; the
       computer stores the noise on the right. Same bytes, two truths: the font is
-      the only decoder, and it runs at the rendering layer. Drag REVL to scatter
-      the glyphs and pull them back.
+      the only decoder, and it runs at the rendering layer. The text starts
+      scattered; <b>click and drag across it</b> to bring it into focus.
     </p>
   </div>
 
@@ -70,10 +77,10 @@
     <label class="sub" style="display:flex;align-items:center;gap:.4rem;">
       <input type="checkbox" id="simulate" checked> Simulate cipher keyboard (type normally)
     </label>
-    <div class="revl">
-      <span class="sub">REVL</span>
-      <input type="range" id="revl" min="0" max="1000" value="650">
-      <span class="v" id="revlv">650</span>
+    <div class="reveal">
+      <span class="sub">Reveal</span>
+      <div class="track"><div class="prog" id="revlProg"></div></div>
+      <span class="v" id="revlv">0</span>
     </div>
   </div>
   <p class="sub">With the real keyboard, turn Simulate <b>off</b> and press
@@ -96,10 +103,42 @@
   const readable = document.getElementById("readable");
   const raw = document.getElementById("raw");
   const simulate = document.getElementById("simulate");
-  const revl = document.getElementById("revl");
   const revlv = document.getElementById("revlv");
+  const revlProg = document.getElementById("revlProg");
   const sync = () => { raw.textContent = readable.textContent || ""; };
   readable.addEventListener("input", sync);
+
+  // The reveal control IS the text: click-drag across it to scrub the REVL axis
+  // (left = scattered, right = distorted, the readable band is in between).
+  let revlVal = 0;
+  function setRevl(v) {
+    revlVal = Math.max(0, Math.min(1000, Math.round(v)));
+    readable.style.fontVariationSettings = '"REVL" ' + revlVal;
+    revlv.textContent = revlVal;
+    revlProg.style.width = (revlVal / 1000 * 100) + "%";
+  }
+  let scrubbing = false;
+  const scrubV = (e) => {
+    const r = readable.getBoundingClientRect();
+    return ((e.clientX - r.left) / r.width) * 1000;
+  };
+  readable.addEventListener("pointerdown", (e) => {
+    scrubbing = true;
+    readable.focus();                       // keep it focused so the keyboard still types here
+    try { readable.setPointerCapture(e.pointerId); } catch (_) {}
+    setRevl(scrubV(e));
+  });
+  readable.addEventListener("pointerup", () => { scrubbing = false; });
+  readable.addEventListener("pointercancel", () => { scrubbing = false; });
+
+  // Hover hint that follows the cursor.
+  const tip = document.createElement("div");
+  tip.id = "scrub-tip";
+  tip.textContent = "click and drag to focus";
+  document.body.appendChild(tip);
+  const placeTip = (e) => { tip.style.left = e.clientX + "px"; tip.style.top = (e.clientY + 18) + "px"; };
+  readable.addEventListener("pointerenter", (e) => { if (!scrubbing) { tip.style.display = "block"; placeTip(e); } });
+  readable.addEventListener("pointerleave", () => { tip.style.display = "none"; });
 
   const CODE_LEN = 2;          // chars per code
   const UNIT = 2 * CODE_LEN;   // 4 stream chars per logical character
@@ -139,9 +178,9 @@
     }
   });
 
-  revl.addEventListener("input", () => {
-    readable.style.fontVariationSettings = '"REVL" ' + revl.value;
-    revlv.textContent = revl.value;
+  readable.addEventListener("pointermove", (e) => {
+    if (scrubbing) { e.preventDefault(); setRevl(scrubV(e)); tip.style.display = "none"; }
+    else { tip.style.display = "block"; placeTip(e); }
   });
   document.getElementById("clear").addEventListener("click", () => {
     readable.textContent = ""; sync(); readable.focus();
@@ -152,6 +191,7 @@
       ? "Toggle the font on (decode it)"
       : "Toggle the font off (reveal the bytes)";
   });
+  setRevl(0);
   readable.focus();
 </script>
 </body>
