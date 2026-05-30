@@ -107,6 +107,23 @@ def _add_carriers_and_cmap(font: TTFont) -> None:
         sub.cmap[ord(charset.PAD)] = kb.carrier_glyph_name(charset.PAD)
 
 
+def _garble_letters(font: TTFont) -> None:
+    """Make normally-typed Latin letters render as meaningless half-glyph
+    fragments, so the font NEVER decodes plain text to readable words. Only the
+    cipher stream (carrier codes -> GSUB ligatures -> tiled halves) reads.
+
+    The keyboard emits carrier codes, never raw A-Z, so remapping the letter
+    codepoints does not affect decoding. Each letter is sent to a deterministic
+    half-glyph so plain text looks like the cipher's own noise.
+    """
+    half_names = [charset.half_glyph_name(s) for s in charset.half_slots()]
+    n = len(half_names)
+    for sub in [t for t in font["cmap"].tables if t.isUnicode()]:
+        for ch in charset.LOWER + charset.UPPER:
+            cp = ord(ch)
+            sub.cmap[cp] = half_names[(cp * 31 + 7) % n]  # spread across fragments
+
+
 def _generate_fea() -> str:
     """One GSUB ligature per code: the 2 code chars collapse to the half-glyph."""
     lines = ["feature liga {"]
@@ -134,6 +151,7 @@ def build() -> None:
     font = TTFont(BASE_FONT)
     _add_half_glyphs(font)
     _add_carriers_and_cmap(font)
+    _garble_letters(font)  # plain Latin letters render as noise; only the cipher reads
 
     os.makedirs(os.path.dirname(OUT_FEA), exist_ok=True)
     with open(OUT_FEA, "w") as fh:

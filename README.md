@@ -31,6 +31,11 @@ project decouples them:
 Because four ASCII characters collapse into one rendered character, the stored
 byte count and the rendered glyph count deliberately diverge.
 
+Plain letters typed in the font do NOT decode: the Latin letter codepoints are
+deliberately mapped to meaningless half-glyph fragments, so pasting ordinary text
+and applying the font yields noise. Readable words only ever come from the cipher
+stream, which reinforces that the font is the key, not a normal typeface.
+
 ## Charset and editing
 
 Souls Only covers the full US-QWERTY printable set: lowercase, uppercase, digits

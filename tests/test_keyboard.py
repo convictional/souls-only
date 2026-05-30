@@ -168,3 +168,16 @@ def test_keyboard_reveal_aligned_restores(built_keys_vf_path, built_keys_path):
     a = bounds(aligned, sample_glyph)
     b = bounds(inst, sample_glyph)
     assert a and b and all(abs(x - y) <= 2 for x, y in zip(a, b))
+
+
+def test_plain_letters_render_as_garbled_fragments(built_keys_path):
+    # Normally-typed letters must NOT decode: A-Z / a-z map to opaque half-glyph
+    # fragments (h_<n>), not readable letter glyphs, so only the cipher stream
+    # (carrier codes -> ligatures) reads as words.
+    from cipher import charset
+    font = TTFont(built_keys_path)
+    best = font.getBestCmap()
+    for ch in charset.LOWER + charset.UPPER:
+        g = best.get(ord(ch))
+        assert g is not None, ch
+        assert re.fullmatch(r"h_\d+", g), f"{ch!r} -> {g!r} (should be a half-glyph)"
