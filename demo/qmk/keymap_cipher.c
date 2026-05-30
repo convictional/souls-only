@@ -80,14 +80,12 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 }
 
 #ifdef RGB_MATRIX_ENABLE
-// While cipher mode is on, flood the whole board blue as a "Souls mode" tell.
-// Returning false skips the keyboard's own indicator overlay so the blue is
-// solid; when cipher is off we return true and normal RGB resumes.
+// Two-state backlight: solid aqua while cipher mode is on ("Souls mode"), solid
+// white when it is off (normal typing). Returning false overrides the stock
+// effect/overlay so the colour stays flat in both modes.
 bool rgb_matrix_indicators_user(void) {
-    if (cipher_on) {
-        rgb_matrix_set_color_all(0, 0, 255);   // R, G, B -> blue
-        return false;
-    }
-    return true;
+    if (cipher_on) rgb_matrix_set_color_all(0, 255, 200);     // cipher on  -> aqua
+    else           rgb_matrix_set_color_all(255, 255, 255);   // cipher off -> white
+    return false;
 }
 #endif
