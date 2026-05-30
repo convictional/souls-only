@@ -47,28 +47,35 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 
     if (!rng_seeded) { srand(timer_read32()); rng_seeded = true; }
 
-    // Clear the user's held modifiers (e.g. the Shift used to type a capital or
-    // symbol) so they do not corrupt the keystrokes we emit; restore afterward.
-    uint8_t saved = get_mods();
-    uint8_t saved_weak = get_weak_mods();
-    clear_mods();
-    clear_weak_mods();
     kb_emitting = true;
     if (keycode == KC_BSPC) {
+        // Navigation/edit: KEEP the user's mods so Shift+Backspace and (below)
+        // Shift+Arrow behave normally. We do not emit characters here, so a held
+        // Shift cannot corrupt anything.
         for (int i = 0; i < 4; i++) tap_code(KC_BSPC);
     } else if (keycode == KC_LEFT) {
+        // Mods intact: bare Left moves one logical character (4 stream chars);
+        // Shift+Left EXTENDS the selection by one logical character.
         for (int i = 0; i < 4; i++) tap_code(KC_LEFT);
     } else if (keycode == KC_RIGHT) {
         for (int i = 0; i < 4; i++) tap_code(KC_RGHT);
     } else if (keycode == KC_ENT) {
+        // Emits characters (newline + pad): clear the held Shift so it cannot
+        // corrupt them, then restore.
+        uint8_t s = get_mods(), sw = get_weak_mods();
+        clear_mods(); clear_weak_mods();
         send_string("\n");
         for (int i = 0; i < KB_PAD_COUNT; i++) send_string(KB_PAD);
+        set_mods(s); set_weak_mods(sw);
     } else {
+        // Emits the cipher codes: clear the held Shift (used to type a capital or
+        // symbol) so it cannot corrupt the emitted ASCII codes, then restore.
+        uint8_t s = get_mods(), sw = get_weak_mods();
+        clear_mods(); clear_weak_mods();
         emit_char(idx);
+        set_mods(s); set_weak_mods(sw);
     }
     kb_emitting = false;
-    set_mods(saved);
-    set_weak_mods(saved_weak);
     return false;              // we handled it; suppress the original key
 }
 
