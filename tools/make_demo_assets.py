@@ -2,7 +2,7 @@
 
 Writes demo/cipher_table.js (the same left/right code pools the font and the QMK
 firmware use) and copies the built variable font into demo/ so the demo folder
-is self-contained for the onsite.
+is self-contained.
 
     python -m fontbuild.build_keyboard   # build SoulsOnly.ttf + SoulsOnly-VF.ttf
     python tools/make_demo_assets.py
