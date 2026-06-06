@@ -14,6 +14,10 @@ base/Jost-Variable.ttf
 # macOS
 .DS_Store
 
+# Local tooling/scratch artifacts
+.playwright-mcp/
+souls-ld-check.png
+
 # Regenerable build artifacts (build via: python -m fontbuild.build_keyboard)
 dist/
 demo/cipher_table.js

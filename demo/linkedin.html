@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Souls Only - vertical demo</title>
+<link rel="stylesheet" href="https://use.typekit.net/lbl4dtu.css">
+<style>
+  @font-face { font-family:"Souls Only VF"; src:url("./SoulsOnly-VF.ttf?v=ld4") format("truetype"); }
+  :root {
+    /* fixed 9:16 recording size: 540x960 logical = 1080x1920 on a retina capture.
+       override height with ?h=, e.g. linkedin.html?h=900&guides */
+    --frameH:960px; --u:calc(var(--frameH) / 100);   /* 1 --u = 1% of frame height */
+    --bg:#fffdf5; --card:#fcfbf7; --panel:#f7f3ea; --line:#efebe2;
+    --fg:oklch(19.8678% .002146 95.1593); --body:#4a443b; --muted:#8a8175;
+    --primary:#2b7fff; --neutral:#292524;
+    --code-size:calc(2 * var(--u));       /* mono codes + blank glyphs, everywhere */
+    --accent-font:"loretta", Georgia, serif;
+    --sans:ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono:ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  }
+  * { box-sizing:border-box; }
+  html { height:100%; }
+  body { margin:0; min-height:100%; background:#e9e5da; display:flex; font-family:var(--sans); }
+  .frame { position:relative; margin:auto; width:calc(56.25 * var(--u)); height:var(--frameH);
+           flex:none; background:#1B1917; color:var(--fg); overflow:hidden;
+           display:flex; flex-direction:column;
+           gap:calc(.8 * var(--u)); padding:calc(2.2 * var(--u)) 5% calc(1.6 * var(--u));
+           user-select:none; }
+  /* ?guides : everything outside the frame turns red - size the Loom region
+     so that NO red is visible and it matches the frame exactly */
+  body.guides { background:#ff3b30; }
+  #guidelabel { position:fixed; top:8px; left:8px; z-index:99; background:#ff3b30; color:#fff;
+                font:600 13px/1.4 var(--sans); padding:6px 10px; border-radius:6px; }
+  .sk { font-family:"Souls Only VF", serif; font-feature-settings:"liga" 1; }
+
+  /* ---- browser chrome (top) ---- */
+  .browser { background:var(--card); border:1px solid var(--line); border-radius:12px;
+             box-shadow:0 4px 16px rgba(20,16,8,.08); overflow:hidden; flex:0 0 auto; }
+  .bbar { display:flex; align-items:center; gap:7px; padding:7px 11px; background:var(--panel);
+          border-bottom:1px solid var(--line); }
+  .dot { width:11px; height:11px; border-radius:50%; }
+  .dot.r{background:#ff5f57} .dot.y{background:#febc2e} .dot.g{background:#28c840}
+  .addr { flex:1; margin-left:6px; background:var(--card); border:1px solid var(--line);
+          border-radius:6px; padding:3px 10px; font:12px/1.3 var(--mono); color:var(--muted);
+          text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .page { height:calc(13 * var(--u)); overflow:hidden; display:flex; align-items:center; justify-content:center; padding:0 5%; }
+  .title-wrap { position:relative; cursor:pointer; width:100%; }
+  body.scrubbing, body.scrubbing * { cursor:ew-resize !important; }
+  .title { text-align:center; color:var(--fg); }
+  #t1mark { color:var(--fg); transition:color .4s ease; }
+  #t1mark.blue { color:var(--primary); }
+  .tline1 { font-size:46px; line-height:1.1; white-space:nowrap; }
+  .tline2 { font-size:17px; line-height:1.3; white-space:nowrap; margin-top:calc(.6 * var(--u)); }
+  .scrubhint { text-align:center; color:rgba(255,253,245,.55); font-size:calc(1.15 * var(--u)); font-style:italic; margin-top:calc(-.3 * var(--u)); }
+
+  /* the elbow connector from the rendered glyph, out the left margin, up to the
+     headline's first "a"; invisible until the cascade's final beat */
+  #wireA { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:5; }
+  #wireA .wire { fill:none; stroke:var(--primary); stroke-width:1; opacity:0;
+                 marker-end:url(#ahBlue); transition:opacity .25s ease; }
+  #wireA .wire.on { opacity:1; }
+
+  /* ---- pipeline: bordered demo lane (left) + borderless descriptions (right) ---- */
+  .pipe { flex:1 1 auto; display:grid; grid-template-columns:60% 1fr;
+          grid-template-rows:minmax(0,1fr); column-gap:3%; min-height:0; }
+  .demo-lane { position:relative; min-height:0; border:1px solid rgba(231,229,228,.14); border-radius:12px;
+               background:#252322; display:flex; flex-direction:column; overflow:hidden; }
+  .desc-lane { display:flex; flex-direction:column; min-height:0; }
+  .dstep, .rstep { flex:1; min-height:0; display:flex; align-items:center; position:relative; }
+  .dstep { justify-content:center; padding:calc(.3 * var(--u)) 4%; }
+  .rstep { padding:calc(.5 * var(--u)) 0; font-size:calc(1.5 * var(--u)); line-height:1.3; color:rgba(255,253,245,.72); }
+  .rstep b { color:#fffdf5; font-weight:650; }
+  .rstep code { font-family:var(--mono); font-size:.88em; color:#fffdf5;
+                background:rgba(255,253,245,.09); padding:.05em .35em; border-radius:4px; }
+  /* connector wires: curved SVG paths drawn between the actual content elements;
+     each one brightens as the cascade reaches its destination step */
+  #wires { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:2; }
+  #wires .wire { fill:none; stroke:#E7E5E4; stroke-width:1; opacity:.55;
+                 marker-end:url(#ahGray); transition:stroke .15s ease, opacity .15s ease; }
+  #wires .wire.on { stroke:var(--primary); opacity:1; marker-end:url(#ahBlue); }
+
+  /* demo glyphs render at the same size as the headline's first "a" (set by fitText) */
+  .glyph { font-size:var(--glyph-size, clamp(20px,5.4vw,34px)); color:#E7E5E4; transition:color .15s ease; }
+  .mono { font-family:var(--mono); color:#E7E5E4; font-size:clamp(12px,3.2vw,16px);
+          transition:color .15s ease; }
+  .op { color:#E7E5E4; margin:0 .25em; font-size:.8em; }
+  /* the cascade: a passing step turns its characters blue */
+  .dstep.hl .glyph, .dstep.hl .mono { color:var(--primary); }
+  .dstep.hl .blank { border-color:var(--primary); }
+
+  /* GSUB: two parallel paths, borderless */
+  #dGsub { align-items:stretch; }   /* let the paths fill the row height */
+  .par { display:flex; width:100%; height:100%; justify-content:center; align-items:stretch; gap:7%; }
+  /* the half-glyphs ride low on the text baseline; nudge their ink up to center */
+  #dGsub .glyph { position:relative; top:-.1em; }
+  /* cmap lookup table: top row the blank glyphs, bottom row the four carriers */
+  .cmt { display:grid; grid-template-columns:repeat(4,1fr);
+         border:1px solid rgba(231,229,228,.35); border-radius:8px; overflow:hidden; }
+  .cmt .cell { display:flex; align-items:center; justify-content:center;
+               padding:calc(.45 * var(--u)) calc(1.7 * var(--u)); }
+  .cmt .cell:not(:nth-child(4n+1)) { border-left:1px solid rgba(231,229,228,.2); }
+  .cmt .cell:nth-child(n+5) { border-top:1px solid rgba(231,229,228,.2); }
+  .par .plane { flex:1; min-width:0; display:flex; align-items:center; justify-content:center;
+                gap:.3em; padding:calc(.4 * var(--u)) .35em; font-size:var(--code-size); }
+  .par .mono { font-size:inherit; }
+  /* fixed against --code-size so every blank renders identically, wherever it sits */
+  .blank { display:inline-block; flex:none; width:calc(var(--code-size) * .65);
+           height:calc(var(--code-size) * .8); border:1px dashed #E7E5E4;
+           border-radius:2px; vertical-align:middle; }
+  /* tile row: the two halves drift together and apart on their own slow loop,
+     independent of the cascade */
+  .tile { display:inline-flex; align-items:center; }
+  .tile .lh { animation:tileL 4s ease-in-out infinite; }
+  .tile .rh { animation:tileR 4s ease-in-out infinite; }
+  @keyframes tileL { 0%,18% { transform:translateX(-14px); } 45%,65% { transform:translateX(0); }
+                     92%,100% { transform:translateX(-14px); } }
+  @keyframes tileR { 0%,18% { transform:translateX(14px); }  45%,65% { transform:translateX(0); }
+                     92%,100% { transform:translateX(14px); } }
+  /* variable-font row: REVL breathes 0 <-> 650, resting at each end */
+  #gRevl { animation:revlBreathe 6s ease-in-out infinite; }
+  @keyframes revlBreathe { 0%,20% { font-variation-settings:"REVL" 0; }
+                           45%,70% { font-variation-settings:"REVL" 650; }
+                           95%,100% { font-variation-settings:"REVL" 0; } }
+
+  #dKbd { padding:calc(.3 * var(--u)) 4% 0; flex-direction:column; align-items:center; }
+  .kbdvid { flex:1; min-height:0; aspect-ratio:1.1/1; width:auto; max-width:100%;
+            object-fit:cover; display:block; border-radius:10px; }
+  .kbdcap { flex:none; text-align:center; color:rgba(231,229,228,.7);
+            font-size:calc(1.15 * var(--u)); font-style:italic;
+            margin-top:calc(.7 * var(--u)); padding:0 4% calc(.5 * var(--u)); }
+</style>
+</head>
+<body>
+  <div class="frame">
+
+    <!-- TOP: the reader's browser -->
+    <div class="browser">
+      <div class="bbar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="addr">convictional.com/essays</span>
+      </div>
+      <div class="page">
+        <div class="title-wrap">
+          <div class="title sk" id="title">
+            <div class="tline1"><span id="t1mark"></span><span id="t1rest"></span></div>
+            <div class="tline2" id="t2"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="scrubhint">click + drag the text to bring it into focus</div>
+    <svg id="wireA" aria-hidden="true"></svg>
+
+    <!-- MIDDLE + BOTTOM: the build, bottom -> top -->
+    <div class="pipe">
+      <div class="demo-lane">
+        <svg id="wires" aria-hidden="true">
+          <defs>
+            <marker id="ahGray" markerWidth="7" markerHeight="7" refX="5.7" refY="3.5" orient="auto" markerUnits="userSpaceOnUse">
+              <path d="M0,0 L7,3.5 L0,7 z" fill="#E7E5E4"/>
+            </marker>
+            <marker id="ahBlue" markerWidth="7" markerHeight="7" refX="5.7" refY="3.5" orient="auto" markerUnits="userSpaceOnUse">
+              <path d="M0,0 L7,3.5 L0,7 z" fill="#2b7fff"/>
+            </marker>
+          </defs>
+        </svg>
+        <div class="dstep" id="dRevl"><span class="glyph sk" id="gRevl"></span></div>
+        <div class="dstep" id="dTile">
+          <span class="tile glyph sk"><span class="lh" id="tileL"></span><span class="rh" id="tileR"></span></span>
+        </div>
+        <div class="dstep" id="dGsub">
+          <div class="par">
+            <div class="plane"><span class="mono" id="gsmL"></span><span class="op">&rarr;</span><span class="glyph sk" id="gsL"></span></div>
+            <div class="plane"><span class="mono" id="gsmR"></span><span class="op">&rarr;</span><span class="glyph sk" id="gsR"></span></div>
+          </div>
+        </div>
+        <div class="dstep" id="dCmap">
+          <div class="cmt" id="cmt">
+            <div class="cell"><span class="blank"></span></div>
+            <div class="cell"><span class="blank"></span></div>
+            <div class="cell"><span class="blank"></span></div>
+            <div class="cell"><span class="blank"></span></div>
+            <div class="cell"><span class="mono" id="cm1"></span></div>
+            <div class="cell"><span class="mono" id="cm2"></span></div>
+            <div class="cell"><span class="mono" id="cm3"></span></div>
+            <div class="cell"><span class="mono" id="cm4"></span></div>
+          </div>
+        </div>
+        <div class="dstep" id="dAscii"><span class="mono" id="ascii" style="font-size:var(--code-size)"></span></div>
+        <div class="dstep" id="dKbd">
+          <video class="kbdvid" src="./keyboard.mp4" autoplay muted playsinline preload="auto"></video>
+          <div class="kbdcap">keyboard with &ldquo;Souls Only&rdquo; firmware</div>
+        </div>
+      </div>
+      <div class="desc-lane">
+        <div class="rstep" id="rRevl"><span>a variable axis (usually for weight or slant) scatters every character, until scrubbing dials it into focus</span></div>
+        <div class="rstep" id="rTile"><span>each letter you see is actually two glyphs meeting at an invisible seam</span></div>
+        <div class="rstep" id="rGsub"><span>each carrier pair ligates into a half-glyph, the same trick that turns ae into &aelig; in some fonts</span></div>
+        <div class="rstep" id="rCmap"><span><code>SoulsOnly.ttf</code>&rsquo;s CMAP table maps carriers to blank glyphs</span></div>
+        <div class="rstep" id="rAscii"><span>keyboard emits four encoded ASCII chars per press</span></div>
+        <div class="rstep" id="rKbd"></div>
+      </div>
+    </div>
+
+  </div>
+
+<script src="./cipher_table.js"></script>
+<script>
+  // ?h=900 overrides the frame height (stays 9:16); ?guides shows the Loom crop outline
+  const qp = new URLSearchParams(location.search);
+  if (qp.get('h')) document.documentElement.style.setProperty('--frameH', parseInt(qp.get('h'), 10) + 'px');
+  if (qp.has('guides')) {
+    document.body.classList.add('guides');
+    const fr = document.querySelector('.frame').getBoundingClientRect();
+    const lab = document.createElement('div'); lab.id = 'guidelabel';
+    lab.textContent = `set browser zoom to 100% (Cmd+0), then size the Loom region until no red shows`
+      + ` - target ${Math.round(fr.width)} x ${Math.round(fr.height)}`;
+    document.body.appendChild(lab);
+  }
+
+  const enc = (s) => { let o=""; for (const ch of s) { const c = cipherEncodeChar(ch); o += (c||ch); } return o; };
+  const L = (ch,k=0) => KB_LEFT[ch][k % KB_LEFT[ch].length];
+  const R = (ch,k=0) => KB_RIGHT[ch][k % KB_RIGHT[ch].length];
+  const setR = (el,v) => { el.style.fontVariationSettings = '"REVL" ' + Math.round(v); };
+
+  // headline: first "a" highlighted (the demo's target), rest after it
+  const t1mark = document.getElementById('t1mark'), t1rest = document.getElementById('t1rest');
+  t1mark.textContent = enc('a');
+  t1rest.textContent = enc(' souls only font');
+  const t2 = document.getElementById('t2'); t2.textContent = enc('easy for humans to read, harder for AI!');
+  const title = document.getElementById('title');
+
+  const fitText = () => {
+    const cw = document.querySelector('.title-wrap').clientWidth;
+    [['.tline1', .96], ['.tline2', .96]].forEach(([sel, frac]) => {
+      const el = document.querySelector(sel); el.style.fontSize = '160px';
+      const w = el.scrollWidth || 1; el.style.fontSize = Math.max(10, 160 * (cw * frac) / w) + 'px';
+    });
+    // demo glyphs match the headline's size
+    document.querySelector('.frame').style.setProperty('--glyph-size',
+      document.querySelector('.tline1').style.fontSize);
+  };
+  document.fonts.ready.then(fitText);
+  window.addEventListener('resize', fitText);
+
+  // demo example: one "a" = left code + right code
+  const lc = L('a'), rc = R('a');
+  document.getElementById('ascii').textContent = lc + rc;     // 4 ASCII chars (no quotes)
+  // cmap: each of the 4 chars maps to its own blank glyph
+  [...lc + rc].forEach((ch, i) => document.getElementById('cm' + (i + 1)).textContent = ch);
+  document.getElementById('gsmL').textContent = lc;           // the carrier pair...
+  document.getElementById('gsmR').textContent = rc;
+  document.getElementById('gsL').textContent = lc;            // ...fuses into its half-glyph
+  document.getElementById('gsR').textContent = rc;
+  document.getElementById('tileL').textContent = lc;
+  document.getElementById('tileR').textContent = rc;
+  document.getElementById('gRevl').textContent = lc + rc;     // the rendered "a"
+  ['gsL','gsR','tileL','tileR'].forEach(id => setR(document.getElementById(id), 650));
+
+  // headline: press + drag to scrub (starts scattered)
+  const frameEl = document.querySelector('.frame');
+  const titleWrap = document.querySelector('.title-wrap');
+  let dragging = false;
+  const applyX = (x) => { const r = frameEl.getBoundingClientRect();
+    setR(title, Math.max(0, Math.min(1000, ((x - r.left) / r.width) * 1000))); };
+  setR(title, 0);
+  const endDrag = () => { dragging = false; document.body.classList.remove('scrubbing'); };
+  titleWrap.addEventListener('pointerdown', (e) => { dragging = true; document.body.classList.add('scrubbing');
+    try { titleWrap.setPointerCapture(e.pointerId); } catch (_) {} applyX(e.clientX); });
+  document.addEventListener('pointermove', (e) => { if (dragging) applyX(e.clientX); });
+  document.addEventListener('pointerup', endDrag);
+  document.addEventListener('pointercancel', endDrag);
+
+  // All rows stay visible. When the video hits frame 8, a color wave cascades UP
+  // the demo lane (each step's characters turn blue). At the video's end everything
+  // resets to black, the video holds for 1s, then it replays.
+  const order = ['Kbd', 'Ascii', 'Cmap', 'Gsub', 'Tile', 'Revl'];   // bottom -> top
+  const video = document.querySelector('.kbdvid');
+
+  // connector wires: curved paths from each step's content up to the next step's,
+  // forking ascii -> the two cmap pairs and merging the two GSUB halves -> the tile
+  const lane = document.querySelector('.demo-lane');
+  const wiresSvg = document.getElementById('wires');
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  const drawWires = () => {
+    const lb = lane.getBoundingClientRect();
+    wiresSvg.setAttribute('viewBox', `0 0 ${lb.width} ${lb.height}`);
+    wiresSvg.querySelectorAll('.wire').forEach(p => p.remove());
+    const rel = (el) => { const r = el.getBoundingClientRect();
+      return { cx: r.left - lb.left + r.width / 2, top: r.top - lb.top, bottom: r.bottom - lb.top }; };
+    const vid   = rel(video);
+    const ascii = rel(document.getElementById('ascii'));
+    // cmap table: wires meet the table's edges, one per column
+    const cmt = rel(document.getElementById('cmt'));
+    const cms = ['cm1','cm2','cm3','cm4'].map(id => {
+      const c = rel(document.getElementById(id).parentElement);
+      return { cx: c.cx, top: cmt.top, bottom: cmt.bottom };
+    });
+    const [gsL, gsR] = [...document.querySelectorAll('#dGsub .plane')].map(pl => {
+      // the big half-glyph's box has lots of font whitespace above/below its ink,
+      // so pull the wire ends in toward the visible content
+      const g = rel(pl.querySelector('.glyph'));
+      const inset = (g.bottom - g.top) * 0.22;
+      return { cx: rel(pl).cx, top: g.top + inset, bottom: g.bottom - inset };
+    });
+    const tileEl = document.querySelector('.tile');
+    const tile  = rel(tileEl);
+    tile.q = tileEl.getBoundingClientRect().width / 4;   // land under each half
+    const revl  = rel(document.getElementById('gRevl'));
+    const G = 6;   // breathing room between wire ends and the content
+    // [destination step, from x/y (lower content's top), to x/y (upper content's bottom)]
+    const wires = [
+      ['Ascii', vid.cx,    vid.top - 2,    ascii.cx,     ascii.bottom + G],
+      // 008$ forks 4 ways, one branch per char
+      ['Cmap',  ascii.cx,  ascii.top - G,  cms[0].cx,    cms[0].bottom + G],
+      ['Cmap',  ascii.cx,  ascii.top - G,  cms[1].cx,    cms[1].bottom + G],
+      ['Cmap',  ascii.cx,  ascii.top - G,  cms[2].cx,    cms[2].bottom + G],
+      ['Cmap',  ascii.cx,  ascii.top - G,  cms[3].cx,    cms[3].bottom + G],
+      // one wire per carrier pair, rising from between its two table columns
+      ['Gsub',  (cms[0].cx + cms[1].cx) / 2, cmt.top - G, gsL.cx, gsL.bottom + G],
+      ['Gsub',  (cms[2].cx + cms[3].cx) / 2, cmt.top - G, gsR.cx, gsR.bottom + G],
+      ['Tile',  gsL.cx,    gsL.top - G,    tile.cx - tile.q,  tile.bottom + G],
+      ['Tile',  gsR.cx,    gsR.top - G,    tile.cx + tile.q,  tile.bottom + G],
+      ['Revl',  tile.cx,   tile.top - G,   revl.cx,      revl.bottom + G],
+    ];
+    // elbow connectors: straight verticals joined by a rounded horizontal jog, so
+    // every arrowhead is fed by a straight line; identical-x ends are plain lines
+    const wirePath = (sx, sy, ex, ey) => {
+      if (Math.abs(ex - sx) < 12) return `M ${sx} ${sy} L ${ex} ${ey}`;
+      const r = Math.min(8, Math.abs(ex - sx) / 2);
+      const my = (sy + ey) / 2, d = ex > sx ? 1 : -1;
+      return `M ${sx} ${sy} L ${sx} ${my + r} Q ${sx} ${my} ${sx + d * r} ${my} ` +
+             `L ${ex - d * r} ${my} Q ${ex} ${my} ${ex} ${my - r} L ${ex} ${ey}`;
+    };
+    for (const [step, sx, sy, ex, ey] of wires) {
+      const p = document.createElementNS(SVGNS, 'path');
+      p.setAttribute('d', wirePath(sx, sy, ex, ey));
+      p.setAttribute('class', 'wire w' + step);
+      wiresSvg.appendChild(p);
+    }
+  };
+  // elbow connector: rendered glyph -> up -> left to the margin -> up -> right,
+  // pointing at the left side of the headline's first "a"
+  const wireASvg = document.getElementById('wireA');
+  const drawWireA = () => {
+    const fb = frameEl.getBoundingClientRect();
+    wireASvg.setAttribute('viewBox', `0 0 ${fb.width} ${fb.height}`);
+    wireASvg.querySelectorAll('.wire').forEach(p => p.remove());
+    const g = document.getElementById('gRevl').getBoundingClientRect();
+    const a = t1mark.getBoundingClientRect();
+    const lb = lane.getBoundingClientRect();
+    const sx = g.left - fb.left + g.width / 2, sy = g.top - fb.top - 6;
+    const ex = a.left - fb.left - 6, ty = a.top - fb.top + a.height / 2;
+    const mx = (lb.left - fb.left) / 2;          // mid-margin, left of the demo lane
+    const y1 = sy - 14;                          // clear the glyph, then head left
+    const r = 8;                                 // rounded elbows
+    const p = document.createElementNS(SVGNS, 'path');
+    p.setAttribute('d',
+      `M ${sx} ${sy} L ${sx} ${y1 + r} Q ${sx} ${y1} ${sx - r} ${y1} ` +
+      `L ${mx + r} ${y1} Q ${mx} ${y1} ${mx} ${y1 - r} ` +
+      `L ${mx} ${ty + r} Q ${mx} ${ty} ${mx + r} ${ty} L ${ex} ${ty}`);
+    p.setAttribute('class', 'wire');
+    wireASvg.appendChild(p);
+  };
+  const drawAll = () => { drawWires(); drawWireA(); };
+  drawAll();
+  document.fonts.ready.then(drawAll);
+  window.addEventListener('resize', drawAll);
+  const FPS = 30000 / 1001, TRIGGER_FRAME = 80;
+  const STEP_MS = 150, REPLAY_DELAY_MS = 1000;   // 6 steps + headline "a" = ~1s total
+  const PULSE_MS = 300;                          // how long each step stays blue as the wave passes
+  const timers = [];
+  let phase = 'playing';
+
+  const clearAll = () => {
+    timers.forEach(clearTimeout); timers.length = 0;
+    order.forEach(s => document.getElementById('d'+s).classList.remove('hl'));
+    wiresSvg.querySelectorAll('.wire.on').forEach(w => w.classList.remove('on'));
+    wireASvg.querySelectorAll('.wire.on').forEach(w => w.classList.remove('on'));
+    t1mark.classList.remove('blue');
+  };
+  const cascade = () => {
+    // each step pulses blue then back to black, so the blue travels up the chain
+    order.forEach((s, i) => {
+      const d = document.getElementById('d'+s);
+      const wires = wiresSvg.querySelectorAll('.w' + s);
+      timers.push(setTimeout(() => {
+        d.classList.add('hl'); wires.forEach(w => w.classList.add('on'));
+      }, i * STEP_MS));
+      timers.push(setTimeout(() => {
+        d.classList.remove('hl'); wires.forEach(w => w.classList.remove('on'));
+      }, i * STEP_MS + PULSE_MS));
+    });
+    // final beat: the elbow connector appears and the headline's first "a" lights
+    // up, holding until the video ends
+    timers.push(setTimeout(() => {
+      t1mark.classList.add('blue');
+      wireASvg.querySelectorAll('.wire').forEach(w => w.classList.add('on'));
+    }, order.length * STEP_MS));
+  };
+  const tick = (frame) => {
+    // ignore stale end-of-video frames reported while a seek back to 0 settles
+    if (phase === 'playing' && frame >= TRIGGER_FRAME && frame < TRIGGER_FRAME + 45) {
+      phase = 'cascading'; cascade();
+    }
+  };
+  function onFrame(_, meta) {
+    tick(Math.round(meta.mediaTime * FPS));
+    if (phase === 'playing' && video.requestVideoFrameCallback) video.requestVideoFrameCallback(onFrame);
+  }
+  const restart = () => {
+    // arm the trigger only after the seek to 0 has landed, so the first frame
+    // callback can't see a stale late frame and fire the cascade early
+    video.addEventListener('seeked', () => {
+      phase = 'playing';
+      if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(onFrame);
+    }, { once: true });
+    try { video.currentTime = 0; } catch (_) {}
+    video.play().catch(() => {});
+  };
+  // video has no loop attribute: it pauses at its last frame, we reset to black,
+  // hold 1s, then replay
+  video.addEventListener('ended', () => {
+    clearAll();
+    timers.push(setTimeout(restart, REPLAY_DELAY_MS));
+  });
+
+  if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(onFrame);
+  else setInterval(() => { if (phase === 'playing') tick(Math.round((video.currentTime || 0) * FPS)); }, 33);
+  // Chrome defers autoplay of offscreen muted videos (the fixed 960px frame can
+  // overflow the viewport) - an explicit play() is honored regardless
+  video.play().catch(() => {});
+</script>
+</body>
+</html>
