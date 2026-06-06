@@ -9,6 +9,15 @@ emits the noise stream, and only this font renders it back into words.
 This is a craft and statement project, not a claim of unbreakable security.
 See Limitations in `font-cipher-brief.md`.
 
+## Demo
+
+<!-- VIDEO-PLACEHOLDER: replace this comment with the drag-and-dropped
+     souls-only-readme.mp4 in GitHub's web editor so it renders inline -->
+
+A walkthrough of the whole pipeline — the page loads scattered, a human scrubs
+it into focus, then the build is traced from the keyboard up: carrier codes,
+`cmap` blanks, GSUB ligature halves, the tile seam, and the REVL scatter axis.
+
 ## How it works
 
 A font has two streams people usually conflate: the **character stream** (stored
