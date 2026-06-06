@@ -1,5 +1,9 @@
 # Souls Only: a human-readable, AI-illegible cipher font you can type
 
+<p align="center">
+  <img src="media/demo.gif" width="420" alt="Souls Only demo: the page loads scattered, a scrub brings the text into focus, and a keypress cascades up the rendering pipeline">
+</p>
+
 A font whose **rendered glyphs** spell readable text while the **stored
 character stream** (what copy-paste, HTML/PDF extraction, and scrapers see) is
 noise. The font is the decoder, applied only at the rendering layer, and the
@@ -8,15 +12,6 @@ emits the noise stream, and only this font renders it back into words.
 
 This is a craft and statement project, not a claim of unbreakable security.
 See Limitations in `font-cipher-brief.md`.
-
-## Demo
-
-<!-- VIDEO-PLACEHOLDER: replace this comment with the drag-and-dropped
-     souls-only-readme.mp4 in GitHub's web editor so it renders inline -->
-
-A walkthrough of the whole pipeline — the page loads scattered, a human scrubs
-it into focus, then the build is traced from the keyboard up: carrier codes,
-`cmap` blanks, GSUB ligature halves, the tile seam, and the REVL scatter axis.
 
 ## How it works
 
