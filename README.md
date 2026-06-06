@@ -1,7 +1,7 @@
 # Souls Only: a human-readable, AI-illegible cipher font you can type
 
 <p align="center">
-  <img src="media/demo.gif" width="420" alt="Souls Only demo: the page loads scattered, a scrub brings the text into focus, and a keypress cascades up the rendering pipeline">
+  <img src="media/demo.gif" width="600" alt="Souls Only demo: the page loads scattered, a scrub brings the text into focus, and a keypress cascades up the rendering pipeline">
 </p>
 
 A font whose **rendered glyphs** spell readable text while the **stored
