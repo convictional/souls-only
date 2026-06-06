@@ -4,8 +4,8 @@ Goal: a wired Keychron, reflashed so each key types its Souls Only cipher codes,
 plus a laptop showing the Souls Only font decoding it live and the REVL axis
 scattering/revealing the glyphs. Build Saturday, keep Sunday as buffer and rehearsal.
 
-The hard dependency is buying a genuinely **QMK/VIA** board (see SHOPPING.md).
-Everything else is generated from the repo.
+The hard dependency is a genuinely **QMK/VIA** board (this build used a
+Keychron V1 Max). Everything else is generated from the repo.
 
 ## The scheme (one source of truth)
 

@@ -129,8 +129,15 @@ bash scripts/fetch_base_font.sh        # if base/Jost-Regular.ttf is missing
 ./.venv/bin/python -c "from cipher import keyboard as k; print(k.decode(k.encode('hello world')))"
 ```
 
-## Base font and license
+## Licensing
 
-Glyph outlines come from [Jost](https://github.com/indestructible-type/Jost),
-licensed under the SIL Open Font License, instanced to a static Regular.
-Redistribution of the built font must carry the OFL notice.
+Dual-licensed:
+
+- **Code** (cipher, fontbuild, tools, firmware glue): [MIT](LICENSE).
+- **Font files**: glyph outlines come from
+  [Jost](https://github.com/indestructible-type/Jost), Copyright 2020 The Jost
+  Project Authors, licensed under the
+  [SIL Open Font License 1.1](base/OFL.txt). The committed
+  `base/Jost-Regular.ttf` (instanced) and any built `SoulsOnly*.ttf` are
+  derivative Font Software and are distributed under the same OFL 1.1 — they
+  are **not** MIT.
