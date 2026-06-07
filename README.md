@@ -40,6 +40,22 @@ deliberately mapped to meaningless half-glyph fragments, so pasting ordinary tex
 and applying the font yields noise. Readable words only ever come from the cipher
 stream, which reinforces that the font is the key, not a normal typeface.
 
+## Install the fonts
+
+The built fonts are committed in [`dist/`](dist/):
+
+- [`dist/SoulsOnly.ttf`](dist/SoulsOnly.ttf) — the static font. Renders a
+  cipher stream as readable text.
+- [`dist/SoulsOnly-VF.ttf`](dist/SoulsOnly-VF.ttf) — the variable font
+  (family "Souls Only VF") with the `REVL` scatter axis. **Defaults to
+  scattered**: text is legible only at `REVL` = 650 (see "The reveal" below).
+
+Download and double-click to install (Font Book on macOS, right-click →
+Install on Windows), or use `@font-face` on the web. Remember the font only
+decodes the **cipher stream** — ordinary text rendered in Souls Only is noise
+by design. Generate a stream with the encoder below or the cipher keyboard
+firmware. The fonts are licensed under the OFL 1.1 (see Licensing).
+
 ## Charset and editing
 
 Souls Only covers the full US-QWERTY printable set: lowercase, uppercase, digits

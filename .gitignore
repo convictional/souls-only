@@ -18,8 +18,11 @@ base/Jost-Variable.ttf
 .playwright-mcp/
 souls-ld-check.png
 
-# Regenerable build artifacts (build via: python -m fontbuild.build_keyboard)
-dist/
+# Regenerable build artifacts (build via: python -m fontbuild.build_keyboard).
+# The two built fonts ARE published; everything else in dist/ is ignored.
+dist/*
+!dist/SoulsOnly.ttf
+!dist/SoulsOnly-VF.ttf
 demo/cipher_table.js
 demo/SoulsOnly-VF.ttf
 demo/qmk/cipher_table.h
