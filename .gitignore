@@ -22,6 +22,7 @@ souls-ld-check.png
 # The two built fonts ARE published; everything else in dist/ is ignored.
 dist/*
 !dist/SoulsOnly.ttf
+!dist/SoulsOnly.otf
 !dist/SoulsOnly-VF.ttf
 demo/cipher_table.js
 demo/SoulsOnly-VF.ttf

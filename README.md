@@ -46,9 +46,13 @@ The built fonts are committed in [`dist/`](dist/):
 
 - [`dist/SoulsOnly.ttf`](dist/SoulsOnly.ttf) — the static font. Renders a
   cipher stream as readable text.
+- [`dist/SoulsOnly.otf`](dist/SoulsOnly.otf) — the same static font with CFF
+  (PostScript) outlines, for tools that prefer OTF.
 - [`dist/SoulsOnly-VF.ttf`](dist/SoulsOnly-VF.ttf) — the variable font
   (family "Souls Only VF") with the `REVL` scatter axis. **Defaults to
   scattered**: text is legible only at `REVL` = 650 (see "The reveal" below).
+  TTF only: the scatter axis lives in TrueType variation data, which is also
+  the most widely supported variable-font format.
 
 Download and double-click to install (Font Book on macOS, right-click →
 Install on Windows), or use `@font-face` on the web. Remember the font only
@@ -123,6 +127,7 @@ python3 -m venv .venv
 bash scripts/fetch_base_font.sh        # if base/Jost-Regular.ttf is missing
 
 ./.venv/bin/python -m fontbuild.build_keyboard   # dist/SoulsOnly.ttf + SoulsOnly-VF.ttf
+./.venv/bin/python tools/make_otf.py             # dist/SoulsOnly.otf (CFF outlines)
 ./.venv/bin/python -m pytest                     # run the suite
 ./.venv/bin/python tools/make_keys_preview.py    # dist/keys.html (the REVL slider)
 # then: python -m http.server 8753  and open dist/keys.html
