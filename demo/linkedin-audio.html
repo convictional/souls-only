@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Souls Only Audio - vertical demo</title>
+<link rel="stylesheet" href="https://use.typekit.net/lbl4dtu.css">
+<style>
+  :root {
+    /* fixed 9:16 recording size: 540x960 logical = 1080x1920 on a retina capture.
+       override height with ?h=, e.g. linkedin-audio.html?h=900&guides */
+    --frameH:960px; --u:calc(var(--frameH) / 100);   /* 1 --u = 1% of frame height */
+    --bg:#fffdf5; --card:#fcfbf7; --panel:#f7f3ea; --line:#efebe2;
+    --fg:oklch(19.8678% .002146 95.1593); --body:#4a443b; --muted:#8a8175;
+    --primary:#2b7fff; --neutral:#292524;
+    --sans:ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono:ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  }
+  * { box-sizing:border-box; }
+  html { height:100%; }
+  body { margin:0; min-height:100%; background:#e9e5da; display:flex; font-family:var(--sans); }
+  .frame { position:relative; margin:auto; width:calc(56.25 * var(--u)); height:var(--frameH);
+           flex:none; background:#1B1917; color:var(--fg); overflow:hidden;
+           display:flex; flex-direction:column;
+           gap:calc(.8 * var(--u)); padding:calc(2.2 * var(--u)) 5% calc(1.6 * var(--u));
+           user-select:none; }
+  body.guides { background:#ff3b30; }
+  #guidelabel { position:fixed; top:8px; left:8px; z-index:99; background:#ff3b30; color:#fff;
+                font:600 13px/1.4 var(--sans); padding:6px 10px; border-radius:6px; }
+
+  /* ---- player (top), styled like a media app window ---- */
+  .player { background:var(--card); border:1px solid var(--line); border-radius:12px;
+            box-shadow:0 4px 16px rgba(20,16,8,.08); overflow:hidden; flex:0 0 auto; }
+  .pbar { display:flex; align-items:center; gap:7px; padding:7px 11px; background:var(--panel);
+          border-bottom:1px solid var(--line); }
+  .dot { width:11px; height:11px; border-radius:50%; }
+  .dot.r{background:#ff5f57} .dot.y{background:#febc2e} .dot.g{background:#28c840}
+  .addr { flex:1; margin-left:6px; background:var(--card); border:1px solid var(--line);
+          border-radius:6px; padding:3px 10px; font:12px/1.3 var(--mono); color:var(--muted);
+          text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .stage { position:relative; height:calc(20 * var(--u)); background:#252322; cursor:pointer; }
+  body.scrubbing, body.scrubbing * { cursor:ew-resize !important; }
+  #spectro { display:block; width:100%; height:100%; }
+  /* play overlay sits over the spectrogram until the reader starts audio */
+  #playOverlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+                 background:rgba(20,16,8,.45); color:#fffdf5; z-index:3; }
+  #playOverlay .pbtn { width:calc(7 * var(--u)); height:calc(7 * var(--u)); border-radius:50%;
+                       background:var(--primary); display:flex; align-items:center; justify-content:center;
+                       box-shadow:0 6px 20px rgba(43,127,255,.45); }
+  #playOverlay .pbtn::after { content:""; border-style:solid; border-width:calc(1.4*var(--u)) 0 calc(1.4*var(--u)) calc(2.4*var(--u));
+                              border-color:transparent transparent transparent #fff; margin-left:calc(.5*var(--u)); }
+  #playOverlay.hidden { display:none; }
+  /* the focus track: a slim progress-like bar whose knob is the dial position */
+  .track { position:relative; height:calc(1.6 * var(--u)); margin:calc(.9*var(--u)) 5% 0;
+           background:#3a3733; border-radius:999px; }
+  .knob { position:absolute; top:50%; width:calc(2.2*var(--u)); height:calc(2.2*var(--u)); border-radius:50%;
+          background:#fffdf5; transform:translate(-50%,-50%); box-shadow:0 1px 4px rgba(0,0,0,.4); }
+  .scrubhint { text-align:center; color:rgba(255,253,245,.55); font-size:calc(1.15 * var(--u));
+               font-style:italic; margin-top:calc(.5 * var(--u)); }
+
+  /* elbow connector from the garbled-asset step up to the player, lights on the cascade's final beat */
+  #wireA { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:5; }
+  #wireA .wire { fill:none; stroke:var(--primary); stroke-width:1; opacity:0;
+                 marker-end:url(#ahBlue); transition:opacity .25s ease; }
+  #wireA .wire.on { opacity:1; }
+
+  /* ---- pipeline: bordered demo lane (left) + borderless descriptions (right) ---- */
+  .pipe { flex:1 1 auto; display:grid; grid-template-columns:60% 1fr;
+          grid-template-rows:minmax(0,1fr); column-gap:3%; min-height:0; }
+  .demo-lane { position:relative; min-height:0; border:1px solid rgba(231,229,228,.14); border-radius:12px;
+               background:#252322; display:flex; flex-direction:column; overflow:hidden; }
+  .desc-lane { display:flex; flex-direction:column; min-height:0; }
+  .dstep, .rstep { flex:1; min-height:0; display:flex; align-items:center; position:relative; }
+  .dstep { justify-content:center; padding:calc(.5 * var(--u)) 5%; }
+  .rstep { padding:calc(.5 * var(--u)) 0; font-size:calc(1.5 * var(--u)); line-height:1.3; color:rgba(255,253,245,.72); }
+  .rstep b { color:#fffdf5; font-weight:650; }
+  .rstep code { font-family:var(--mono); font-size:.88em; color:#fffdf5;
+                background:rgba(255,253,245,.09); padding:.05em .35em; border-radius:4px; }
+  .steplabel { position:absolute; top:calc(.4*var(--u)); left:5%; font:600 calc(1.15*var(--u))/1 var(--mono);
+               letter-spacing:.04em; color:rgba(231,229,228,.5); text-transform:uppercase; }
+  .dstep canvas { width:90%; height:70%; display:block; }
+  /* connector wires up the chain; each brightens as the cascade reaches its step */
+  #wires { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:2; }
+  #wires .wire { fill:none; stroke:#E7E5E4; stroke-width:1; opacity:.55;
+                 marker-end:url(#ahGray); transition:stroke .15s ease, opacity .15s ease; }
+  #wires .wire.on { stroke:var(--primary); opacity:1; marker-end:url(#ahBlue); }
+  /* the cascade: a passing step glows */
+  .dstep.hl { box-shadow:inset 0 0 0 1px var(--primary); border-radius:8px; }
+  .dstep.hl .steplabel { color:var(--primary); }
+</style>
+</head>
+<body>
+  <div class="frame">
+
+    <!-- TOP: the listener's player -->
+    <div class="player">
+      <div class="pbar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="addr">souls-only-audio &mdash; message.wav</span>
+      </div>
+      <div class="stage" id="stage">
+        <canvas id="spectro"></canvas>
+        <div id="playOverlay"><div class="pbtn" aria-label="play"></div></div>
+      </div>
+    </div>
+    <div class="track" id="track"><div class="knob" id="knob"></div></div>
+    <div class="scrubhint">click + drag to tune the message into focus</div>
+    <svg id="wireA" aria-hidden="true"></svg>
+
+    <!-- MIDDLE + BOTTOM: how the asset was scrambled, bottom -> top -->
+    <div class="pipe">
+      <div class="demo-lane">
+        <svg id="wires" aria-hidden="true">
+          <defs>
+            <marker id="ahGray" markerWidth="7" markerHeight="7" refX="5.7" refY="3.5" orient="auto" markerUnits="userSpaceOnUse">
+              <path d="M0,0 L7,3.5 L0,7 z" fill="#E7E5E4"/>
+            </marker>
+            <marker id="ahBlue" markerWidth="7" markerHeight="7" refX="5.7" refY="3.5" orient="auto" markerUnits="userSpaceOnUse">
+              <path d="M0,0 L7,3.5 L0,7 z" fill="#2b7fff"/>
+            </marker>
+          </defs>
+        </svg>
+        <div class="dstep" id="dAsset"><span class="steplabel">shipped asset</span><canvas id="cvAsset"></canvas></div>
+        <div class="dstep" id="dScramble"><span class="steplabel">scramble phase</span><canvas id="cvScramble"></canvas></div>
+        <div class="dstep" id="dSpectrum"><span class="steplabel">FFT</span><canvas id="cvSpectrum"></canvas></div>
+        <div class="dstep" id="dMessage"><span class="steplabel">message</span><canvas id="cvMessage"></canvas></div>
+      </div>
+      <div class="desc-lane">
+        <div class="rstep" id="rAsset"><span>the shipped file has the <b>same spectral energy</b> as the voice, but its phase is scrambled, so it is noise with no words</span></div>
+        <div class="rstep" id="rScramble"><span>a seeded mask <b>rotates every frequency&rsquo;s phase</b>; the amplitudes are left untouched</span></div>
+        <div class="rstep" id="rSpectrum"><span>an <b>FFT</b> splits the voice into frequencies, each with an amplitude and a phase</span></div>
+        <div class="rstep" id="rMessage"><span>a spoken message</span></div>
+      </div>
+    </div>
+
+  </div>
+
+<script type="module">
+  import { transform } from '../audio/src/fft.js'
+  import { buildPhaseMask, alphaForReveal, rotatePhase } from '../audio/src/scramble.js'
+  import { AXIS_MAX, ASSET_RATE, PHASE_SEED, ALPHA_MAX } from '../audio/src/constants.js'
+
+  const ASSET_URL = '../audio/public/assets/message.wav'
+
+  // ?h=900 overrides the frame height (stays 9:16); ?guides shows the Loom crop outline
+  const qp = new URLSearchParams(location.search)
+  if (qp.get('h')) document.documentElement.style.setProperty('--frameH', parseInt(qp.get('h'), 10) + 'px')
+  if (qp.has('guides')) {
+    document.body.classList.add('guides')
+    const fr = document.querySelector('.frame').getBoundingClientRect()
+    const lab = document.createElement('div'); lab.id = 'guidelabel'
+    lab.textContent = `set browser zoom to 100% (Cmd+0), then size the Loom region until no red shows`
+      + ` - target ${Math.round(fr.width)} x ${Math.round(fr.height)}`
+    document.body.appendChild(lab)
+  }
+
+  const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x))
+  const dpr = Math.max(1, window.devicePixelRatio || 1)
+  const fitCanvas = (cv) => {
+    const r = cv.getBoundingClientRect()
+    cv.width = Math.max(1, Math.round(r.width * dpr))
+    cv.height = Math.max(1, Math.round(r.height * dpr))
+    return cv.getContext('2d')
+  }
+
+  // ----- a decorative "voice" waveform for the pipeline diagram (illustrative
+  // only; the real clean recording never ships) -----
+  const DECOR_N = 256
+  const decor = new Float32Array(DECOR_N)
+  for (let i = 0; i < DECOR_N; i++) {
+    const env = Math.sin((Math.PI * i) / DECOR_N) ** 1.5
+    decor[i] = env * (Math.sin(i * 0.6) + 0.5 * Math.sin(i * 1.7 + 1) + 0.3 * Math.sin(i * 3.1 + 2)) / 1.8
+  }
+  // its spectrum, for the FFT / scramble panels
+  const dre = new Float64Array(DECOR_N), dim = new Float64Array(DECOR_N)
+  for (let i = 0; i < DECOR_N; i++) dre[i] = decor[i]
+  transform(dre, dim, false)
+  const BINS = 28
+  const mags = [], phases = []
+  for (let k = 1; k <= BINS; k++) {
+    mags.push(Math.hypot(dre[k], dim[k]))
+    phases.push(Math.atan2(dim[k], dre[k]))
+  }
+  const maxMag = Math.max(...mags)
+
+  const INK = '#E7E5E4'
+  function drawWave(cv, sig, color) {
+    const ctx2 = fitCanvas(cv), w = cv.width, h = cv.height
+    ctx2.clearRect(0, 0, w, h)
+    ctx2.strokeStyle = color; ctx2.lineWidth = dpr
+    ctx2.beginPath()
+    const step = sig.length / w
+    let peak = 0; for (let i = 0; i < sig.length; i++) peak = Math.max(peak, Math.abs(sig[i]))
+    const norm = peak > 0 ? 0.46 / peak : 0
+    for (let x = 0; x < w; x++) {
+      const v = sig[Math.floor(x * step)] || 0
+      const y = h / 2 - v * h * norm
+      x ? ctx2.lineTo(x, y) : ctx2.moveTo(x, y)
+    }
+    ctx2.stroke()
+  }
+  // magnitude bars (bottom) + phase dots (top); scrambled=true scatters the dots
+  function drawSpectrum(cv, scrambled, color) {
+    const ctx2 = fitCanvas(cv), w = cv.width, h = cv.height
+    ctx2.clearRect(0, 0, w, h)
+    const bw = w / BINS, mid = h * 0.56
+    ctx2.fillStyle = color
+    for (let k = 0; k < BINS; k++) {
+      const bh = (mags[k] / maxMag) * (h * 0.4)
+      ctx2.fillRect(k * bw + bw * 0.2, mid - bh, bw * 0.6, bh)        // magnitude bar (unchanged)
+      const ph = scrambled ? ((k * 2654435761) % 1000) / 1000 * Math.PI * 2 - Math.PI : phases[k]
+      const dy = mid + (h * 0.22) + (ph / Math.PI) * (h * 0.16)       // phase dot
+      ctx2.beginPath(); ctx2.arc(k * bw + bw * 0.5, dy, dpr * 1.3, 0, 7); ctx2.fill()
+    }
+    // a thin baseline separating magnitude (above) from phase (below)
+    ctx2.strokeStyle = 'rgba(231,229,228,.25)'; ctx2.lineWidth = dpr
+    ctx2.beginPath(); ctx2.moveTo(0, mid + h * 0.06); ctx2.lineTo(w, mid + h * 0.06); ctx2.stroke()
+  }
+
+  // ===== audio engine (Vite-free; ScriptProcessor loops a swappable buffer) =====
+  let ctx, analyser, scriptNode, freqData
+  let reG, imG, phi, N = 0
+  let playBuf = null, pos = 0
+  let revl = 0, alpha = 0
+  let started = false
+
+  function render() {
+    const re = reG.slice(), im = imG.slice()
+    rotatePhase(re, im, phi, -alpha)
+    transform(re, im, true)
+    const out = new Float32Array(N)
+    for (let i = 0; i < N; i++) out[i] = re[i]
+    return out
+  }
+  function setDial(v) {
+    revl = clamp(v, 0, AXIS_MAX)
+    alpha = alphaForReveal(revl, AXIS_MAX, ALPHA_MAX)
+    knob.style.left = (revl / AXIS_MAX) * 100 + '%'
+    if (reG) playBuf = render()
+  }
+
+  async function startAudio() {
+    ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: ASSET_RATE })
+    const arr = await (await fetch(ASSET_URL)).arrayBuffer()
+    const buf = await ctx.decodeAudioData(arr)
+    N = buf.length
+    const data = buf.getChannelData(0)
+    phi = buildPhaseMask(PHASE_SEED, N)
+    reG = new Float64Array(N); imG = new Float64Array(N)
+    for (let i = 0; i < N; i++) reG[i] = data[i]
+    transform(reG, imG, false)
+    playBuf = render()
+
+    scriptNode = ctx.createScriptProcessor(4096, 0, 1)
+    scriptNode.onaudioprocess = (e) => {
+      const o = e.outputBuffer.getChannelData(0)
+      for (let k = 0; k < o.length; k++) { o[k] = playBuf ? playBuf[pos] : 0; pos++; if (pos >= N) pos = 0 }
+    }
+    analyser = ctx.createAnalyser()
+    analyser.fftSize = 1024; analyser.smoothingTimeConstant = 0.55
+    freqData = new Uint8Array(analyser.frequencyBinCount)
+    const gain = ctx.createGain(); gain.gain.value = 0.9
+    scriptNode.connect(analyser); analyser.connect(gain); gain.connect(ctx.destination)
+  }
+
+  // ----- spectrogram (scrolls left; a column per frame) -----
+  const spectro = document.getElementById('spectro')
+  let sctx, sw, sh
+  function sizeSpectro() { sctx = fitCanvas(spectro); sw = spectro.width; sh = spectro.height
+    sctx.fillStyle = '#252322'; sctx.fillRect(0, 0, sw, sh) }
+  const heat = (v) => {
+    // 0..1 -> dark -> blue -> warm white (matches the deck's primary blue)
+    const t = v
+    const r = Math.round(40 + t * 215), g = Math.round(35 + t * 160), b = Math.round(34 + t * 255 * (1 - t * 0.3))
+    return `rgb(${Math.min(255,r)},${Math.min(255,g)},${Math.min(255,b)})`
+  }
+  const COLW = Math.max(2, Math.round(4 * dpr))   // scroll step: fills the panel in a few seconds
+  function drawSpectroColumn() {
+    if (!analyser) return
+    analyser.getByteFrequencyData(freqData)
+    const img = sctx.getImageData(COLW, 0, sw - COLW, sh)
+    sctx.putImageData(img, 0, 0)
+    const bins = freqData.length
+    for (let y = 0; y < sh; y++) {
+      // low frequencies at the bottom; use a sqrt scale so voice formants spread out
+      const f = 1 - y / sh
+      const b = Math.min(bins - 1, Math.floor(Math.sqrt(f) * bins))
+      const v = freqData[b] / 255
+      sctx.fillStyle = heat(v)
+      sctx.fillRect(sw - COLW, y, COLW, 1)
+    }
+  }
+
+  // ===== interaction: drag to scrub; auto-sweep when not dragging =====
+  const stage = document.getElementById('stage')
+  const track = document.getElementById('track')
+  const knob = document.getElementById('knob')
+  const overlay = document.getElementById('playOverlay')
+  let dragging = false, autostart = null
+
+  const applyX = (clientX, el) => { const r = el.getBoundingClientRect()
+    setDial(((clientX - r.left) / r.width) * AXIS_MAX) }
+  const endDrag = () => { dragging = false; document.body.classList.remove('scrubbing') }
+  for (const el of [stage, track]) {
+    el.addEventListener('pointerdown', (e) => {
+      if (!started) { begin(); return }
+      dragging = true; document.body.classList.add('scrubbing')
+      try { el.setPointerCapture(e.pointerId) } catch (_) {}
+      applyX(e.clientX, el)
+    })
+  }
+  document.addEventListener('pointermove', (e) => { if (dragging) applyX(e.clientX, stage) })
+  document.addEventListener('pointerup', endDrag)
+  document.addEventListener('pointercancel', endDrag)
+
+  // auto-sweep: a slow triangle across the whole dial so a recording hears the
+  // voice surface as the sweep passes the focus and dissolve again. Linear 0..1000;
+  // the clear point is not encoded here, it emerges from the asset.
+  const SWEEP_MS = 13000
+  let sweepT0 = 0
+  function sweep(now) {
+    if (started && !dragging) {
+      const p = ((now - sweepT0) % SWEEP_MS) / SWEEP_MS       // 0..1
+      const tri = p < 0.5 ? p * 2 : 2 - p * 2                  // 0->1->0
+      setDial(tri * AXIS_MAX)
+    }
+    drawSpectroColumn()
+    requestAnimationFrame(sweep)
+  }
+
+  // cascade up the pipeline on a loop, tied to the sweep period
+  const order = ['Message', 'Spectrum', 'Scramble', 'Asset']     // bottom -> top
+  const wiresSvg = document.getElementById('wires')
+  const wireASvg = document.getElementById('wireA')
+  const STEP_MS = 180, PULSE_MS = 360
+  function cascade() {
+    order.forEach((s, i) => {
+      const d = document.getElementById('d' + s)
+      const ws = wiresSvg.querySelectorAll('.w' + s)
+      setTimeout(() => { d.classList.add('hl'); ws.forEach(w => w.classList.add('on')) }, i * STEP_MS)
+      setTimeout(() => { d.classList.remove('hl'); ws.forEach(w => w.classList.remove('on')) }, i * STEP_MS + PULSE_MS)
+    })
+    setTimeout(() => {
+      wireASvg.querySelectorAll('.wire').forEach(w => w.classList.add('on'))
+      setTimeout(() => wireASvg.querySelectorAll('.wire').forEach(w => w.classList.remove('on')), 900)
+    }, order.length * STEP_MS)
+  }
+
+  async function begin() {
+    if (started) return
+    started = true
+    overlay.classList.add('hidden')
+    await startAudio()
+    redraw()                         // draw the real shipped-asset waveform
+    sweepT0 = performance.now()
+    setInterval(cascade, SWEEP_MS)   // one build-up per sweep
+    cascade()
+  }
+  overlay.addEventListener('pointerdown', begin)
+
+  // ===== wires (a simple vertical chain) + wireA to the player =====
+  const lane = document.querySelector('.demo-lane')
+  const SVGNS = 'http://www.w3.org/2000/svg'
+  const frameEl = document.querySelector('.frame')
+  const wirePath = (sx, sy, ex, ey) => {
+    if (Math.abs(ex - sx) < 12) return `M ${sx} ${sy} L ${ex} ${ey}`
+    const r = Math.min(8, Math.abs(ex - sx) / 2), my = (sy + ey) / 2, d = ex > sx ? 1 : -1
+    return `M ${sx} ${sy} L ${sx} ${my + r} Q ${sx} ${my} ${sx + d * r} ${my} `
+         + `L ${ex - d * r} ${my} Q ${ex} ${my} ${ex} ${my - r} L ${ex} ${ey}`
+  }
+  function drawWires() {
+    const lb = lane.getBoundingClientRect()
+    wiresSvg.setAttribute('viewBox', `0 0 ${lb.width} ${lb.height}`)
+    wiresSvg.querySelectorAll('.wire').forEach(p => p.remove())
+    const rel = (id) => { const r = document.getElementById(id).getBoundingClientRect()
+      return { cx: r.left - lb.left + r.width / 2, top: r.top - lb.top, bottom: r.bottom - lb.top } }
+    const G = 6
+    // each pair: from the lower step's top to the upper step's bottom (data flows up)
+    const segs = [
+      ['Spectrum', 'cvMessage', 'cvSpectrum'],
+      ['Scramble', 'cvSpectrum', 'cvScramble'],
+      ['Asset', 'cvScramble', 'cvAsset'],
+    ]
+    for (const [step, fromId, toId] of segs) {
+      const a = rel(fromId), b = rel(toId)
+      const p = document.createElementNS(SVGNS, 'path')
+      p.setAttribute('d', wirePath(a.cx, a.top - G, b.cx, b.bottom + G))
+      p.setAttribute('class', 'wire w' + step)
+      wiresSvg.appendChild(p)
+    }
+  }
+  function drawWireA() {
+    const fb = frameEl.getBoundingClientRect()
+    wireASvg.setAttribute('viewBox', `0 0 ${fb.width} ${fb.height}`)
+    wireASvg.querySelectorAll('.wire').forEach(p => p.remove())
+    const g = document.getElementById('cvAsset').getBoundingClientRect()
+    const target = document.getElementById('track').getBoundingClientRect()
+    const sx = g.left - fb.left + g.width / 2, sy = g.top - fb.top - 6
+    const ex = target.left - fb.left + target.width / 2, ey = target.bottom - fb.top + 6
+    const p = document.createElementNS(SVGNS, 'path')
+    p.setAttribute('d', wirePath(sx, sy, ex, ey))
+    p.setAttribute('class', 'wire')
+    wireASvg.appendChild(p)
+  }
+
+  function redraw() {
+    drawWave(document.getElementById('cvMessage'), decor, INK)
+    drawSpectrum(document.getElementById('cvSpectrum'), false, INK)
+    drawSpectrum(document.getElementById('cvScramble'), true, INK)
+    // the shipped asset: show its actual (noise-like) waveform if loaded, else a placeholder
+    if (reG) {
+      const re = reG.slice(), im = imG.slice(); transform(re, im, true)
+      const wv = new Float32Array(2048); for (let i = 0; i < 2048; i++) wv[i] = re[i * Math.floor(N / 2048)]
+      drawWave(document.getElementById('cvAsset'), wv, INK)
+    } else {
+      // deterministic noise placeholder before audio loads
+      const wv = new Float32Array(512); let s = 1
+      for (let i = 0; i < 512; i++) { s = (s * 1103515245 + 12345) & 0x7fffffff; wv[i] = (s / 0x7fffffff) * 2 - 1 }
+      drawWave(document.getElementById('cvAsset'), wv, INK)
+    }
+    drawWires(); drawWireA()
+  }
+
+  sizeSpectro()
+  redraw()
+  setDial(0)
+  window.addEventListener('resize', () => { sizeSpectro(); redraw() })
+  document.fonts && document.fonts.ready && document.fonts.ready.then(() => { sizeSpectro(); redraw() })
+  requestAnimationFrame(sweep)
+</script>
+</body>
+</html>

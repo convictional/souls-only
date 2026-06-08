@@ -1,0 +1,12 @@
+# Node / Vite / Vitest
+node_modules/
+dist/
+.vite/
+coverage/
+
+# Session state from the remember plugin
+.remember/
+.superpowers/
+
+# macOS
+.DS_Store

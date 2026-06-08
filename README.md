@@ -98,6 +98,31 @@ reused across a class. The bowl classes share cleanly. The stem class
 letters carry a faint hairline seam. The deferred fix is a hand-drawn synthetic
 shared-stem glyph (see the TODO in `fontbuild/fragments.py`).
 
+## The audio sibling
+
+[`audio/`](audio/) is a parallel artwork: the same reveal, in sound. A spoken
+message ships **already scrambled into noise** and reassembles into an
+intelligible voice only at a hidden point on the same 0 to 1000 dial the font's
+`REVL` axis uses — illegible by default, clear only at a hidden reveal point.
+Where the font warps glyph outlines along `REVL`, the audio phase-scrambles the
+recording: an FFT keeps each frequency's amplitude but a seeded mask randomizes
+its phase, so the voice is genuinely destroyed rather than buried under added
+static. Rotating the phase back by the dial amount reconstructs the voice, but
+only where that amount matches the one baked into the asset.
+
+The intention is to state the same idea in a second medium and push the reveal
+one step further. The font's `REVL` value is a number in the shipped variable
+font; the audio's focal value is **not in the shipped code at all** — it lives
+only in how the offline tool scrambled the asset, so reading the source does not
+hand it over. The honest limit is the font's limit restated: a single bounded
+dial can be swept, so an attacker who renders and judges the audio can still find
+the point. It is a statement device, scoped as such.
+
+See [`audio/README.md`](audio/README.md) to run and build it, and
+[`demo/linkedin-audio.html`](demo/linkedin-audio.html) for a vertical demo that
+plays the message and shows the scramble-and-reveal transform, mirroring the
+font's demo.
+
 ## Layout
 
 ```
@@ -113,8 +138,10 @@ tools/make_qmk_table.py       generate the QMK firmware table from cipher/keyboa
 tools/make_demo_assets.py     generate the browser demo table + copy the VF
 tools/make_keys_preview.py    generate dist/keys.html (the REVL slider preview)
 demo/                         the physical cipher keyboard demo (QMK keymap, runbook, page)
+demo/linkedin-audio.html      vertical demo for the audio reveal (sibling of linkedin.html)
 tests/                        pytest suite (run via python -m pytest)
 base/Jost-Regular.ttf         instanced OFL base font (glyph outlines)
+audio/                        the audio sibling: a phase-scramble reveal of a spoken message (own README)
 ```
 
 (`dist/` and the generated demo assets are build artifacts and are gitignored.)
