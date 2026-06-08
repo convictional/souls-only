@@ -263,31 +263,33 @@
     scriptNode.connect(analyser); analyser.connect(gain); gain.connect(ctx.destination)
   }
 
-  // ----- spectrogram (scrolls left; a column per frame) -----
-  const spectro = document.getElementById('spectro')
-  let sctx, sw, sh
-  function sizeSpectro() { sctx = fitCanvas(spectro); sw = spectro.width; sh = spectro.height
-    sctx.fillStyle = '#252322'; sctx.fillRect(0, 0, sw, sh) }
-  const heat = (v) => {
-    // 0..1 -> dark -> blue -> warm white (matches the deck's primary blue)
-    const t = v
-    const r = Math.round(40 + t * 215), g = Math.round(35 + t * 160), b = Math.round(34 + t * 255 * (1 - t * 0.3))
-    return `rgb(${Math.min(255,r)},${Math.min(255,g)},${Math.min(255,b)})`
-  }
-  const COLW = Math.max(2, Math.round(4 * dpr))   // scroll step: fills the panel in a few seconds
-  function drawSpectroColumn() {
+  // ----- frequency bars (a reactive EQ visualizer driven by the output) -----
+  const viz = document.getElementById('spectro')
+  let vctx, vw, vh
+  function sizeViz() { vctx = fitCanvas(viz); vw = viz.width; vh = viz.height
+    vctx.fillStyle = '#252322'; vctx.fillRect(0, 0, vw, vh) }
+  const NBARS = 56
+  function drawBars() {
+    if (!vctx) return
+    vctx.fillStyle = '#252322'; vctx.fillRect(0, 0, vw, vh)
     if (!analyser) return
     analyser.getByteFrequencyData(freqData)
-    const img = sctx.getImageData(COLW, 0, sw - COLW, sh)
-    sctx.putImageData(img, 0, 0)
     const bins = freqData.length
-    for (let y = 0; y < sh; y++) {
-      // low frequencies at the bottom; use a sqrt scale so voice formants spread out
-      const f = 1 - y / sh
-      const b = Math.min(bins - 1, Math.floor(Math.sqrt(f) * bins))
-      const v = freqData[b] / 255
-      sctx.fillStyle = heat(v)
-      sctx.fillRect(sw - COLW, y, COLW, 1)
+    const bw = vw / NBARS
+    const gap = Math.max(dpr, bw * 0.18)
+    for (let i = 0; i < NBARS; i++) {
+      // sqrt-spaced bands so the voice's lower formants spread across the bars
+      const f0 = (i / NBARS) ** 2, f1 = ((i + 1) / NBARS) ** 2
+      const lo = Math.floor(f0 * bins), hi = Math.max(lo + 1, Math.floor(f1 * bins))
+      let m = 0; for (let b = lo; b < hi && b < bins; b++) m = Math.max(m, freqData[b])
+      const v = m / 255
+      const bh = Math.max(dpr, v * vh * 0.92)
+      const x = i * bw + gap / 2, w = bw - gap
+      const grad = vctx.createLinearGradient(0, vh, 0, vh - bh)
+      grad.addColorStop(0, 'rgba(43,127,255,.5)')
+      grad.addColorStop(1, `rgba(${Math.round(120 + v * 135)},${Math.round(170 + v * 70)},255,.95)`)
+      vctx.fillStyle = grad
+      vctx.fillRect(x, vh - bh, w, bh)
     }
   }
 
@@ -324,7 +326,7 @@
       const tri = p < 0.5 ? p * 2 : 2 - p * 2                  // 0->1->0
       setDial(tri * AXIS_MAX)
     }
-    drawSpectroColumn()
+    drawBars()
     requestAnimationFrame(sweep)
   }
 
@@ -421,11 +423,11 @@
     drawWires(); drawWireA()
   }
 
-  sizeSpectro()
+  sizeViz()
   redraw()
   setDial(0)
-  window.addEventListener('resize', () => { sizeSpectro(); redraw() })
-  document.fonts && document.fonts.ready && document.fonts.ready.then(() => { sizeSpectro(); redraw() })
+  window.addEventListener('resize', () => { sizeViz(); redraw() })
+  document.fonts && document.fonts.ready && document.fonts.ready.then(() => { sizeViz(); redraw() })
   requestAnimationFrame(sweep)
 </script>
 </body>
