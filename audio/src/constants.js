@@ -11,9 +11,18 @@
 export const AXIS_MAX = 1000
 export const ASSET_RATE = 22050
 
-// Asset length in samples. A power of two so the whole-buffer FFT is exact and
-// the looping signal is treated as one circular block. About 3 seconds at 22050.
-export const ASSET_LEN = 65536
+// Per-station block length in samples. A power of two so each block's FFT is
+// exact. About 3 seconds at 22050, sized to hold the spoken message.
+export const BLOCK_LEN = 65536
+
+// Number of stations the asset carries. One is the real message; the rest are
+// babble decoys (tools/babble.mjs) — the real message's own frames reordered, so
+// they share its kurtosis AND its energy-envelope CV exactly. Each station is
+// phase-scrambled at its own focal rotation, so a statistics sweep (kurtosis,
+// envelope CV) lights up at every station identically and cannot pick the real
+// one; only recognizing actual words (a human, or STT) distinguishes it. Which
+// focal is the real message lives offline in tools/garble.mjs, never here.
+export const STATIONS = 4
 
 // Public seed for the per-bin phase mask. Knowing it does not reveal the focal
 // point: recovering that still requires rendering the audio and judging it.

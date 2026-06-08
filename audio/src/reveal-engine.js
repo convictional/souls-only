@@ -1,16 +1,38 @@
 // src/reveal-engine.js
 import { transform } from './fft.js'
 import { buildPhaseMask, alphaForReveal, rotatePhase } from './scramble.js'
-import { AXIS_MAX, ASSET_RATE, PHASE_SEED, ALPHA_MAX } from './constants.js'
+import { AXIS_MAX, ASSET_RATE, PHASE_SEED, ALPHA_MAX, BLOCK_LEN } from './constants.js'
 import revealWorkletUrl from './reveal-worklet.js?url'
 
-// The focal value is NOT here. The asset is a phase-scrambled recording; the
-// dial maps linearly to a phase-rotation amount (alpha) and the engine renders
-// the descrambled signal by rotating the cached asset spectrum by -alpha. The
-// voice reconstructs only where alpha matches the amount baked into the asset
-// offline, which this code does not know.
+// The focal values are NOT here. The asset is STATIONS phase-scrambled blocks
+// concatenated in time; the dial maps linearly to a phase-rotation amount
+// (alpha) and the engine descrambles every block by -alpha. A block resolves only
+// where alpha matches the rotation baked into it offline, which this code does
+// not know. Playback follows whichever station resolves at the current dial, so
+// the dial behaves like a radio: static between stations, a voice (or babble)
+// emerging as you tune onto one.
 export const PHASE_SEED_DEFAULT = PHASE_SEED
 export const ALPHA_MAX_DEFAULT = ALPHA_MAX
+
+// Kurtosis of a block (peakiness). Phase-noise sits near 3 (Gaussian); a resolved
+// speech/babble block spikes well above it. Used to pick the currently-tuned
+// station for playback — not to find the focal (the engine has no focal to find).
+function blockKurtosis(a, base, L) {
+  let mean = 0
+  for (let i = 0; i < L; i++) mean += a[base + i]
+  mean /= L
+  let m2 = 0
+  let m4 = 0
+  for (let i = 0; i < L; i++) {
+    const d = a[base + i] - mean
+    const d2 = d * d
+    m2 += d2
+    m4 += d2 * d2
+  }
+  m2 /= L
+  m4 /= L
+  return m2 > 0 ? m4 / (m2 * m2) : 0
+}
 
 export class RevealEngine {
   constructor(audioContext, opts = {}) {
@@ -18,16 +40,19 @@ export class RevealEngine {
     this.axisMax = AXIS_MAX
     this.alphaMax = opts.alphaMax ?? ALPHA_MAX
     this.phaseSeed = opts.phaseSeed ?? PHASE_SEED
+    this.blockLen = opts.blockLen ?? BLOCK_LEN
 
     this.buffer = null
     this.revl = 0
     this.alpha = alphaForReveal(0, this.axisMax, this.alphaMax)
 
-    // Cached spectrum of the garbled asset, and the per-bin phase mask.
-    this._reG = null
-    this._imG = null
+    // Per-block cached spectra of the garbled asset, the shared per-bin phase
+    // mask, and the layout (block count, total samples).
+    this._reG = [] // Float64Array per block
+    this._imG = []
     this._phi = null
-    this._n = 0
+    this._n = 0 // total samples across all blocks
+    this._blocks = 0
 
     this.master = this.ctx.createGain()
     this.node = null
@@ -42,17 +67,27 @@ export class RevealEngine {
     return this.buffer
   }
 
-  // Build the phase mask and cache the forward FFT of the garbled asset, so each
-  // dial change only costs one inverse FFT.
+  // Build the shared phase mask and cache the forward FFT of each block, so each
+  // dial change only costs one inverse FFT per block. The asset is treated as
+  // consecutive blocks of `blockLen` samples; any trailing remainder is ignored.
   _prepare() {
     const data = this.buffer.getChannelData(0)
-    const n = data.length
-    this._n = n
-    this._phi = buildPhaseMask(this.phaseSeed, n)
-    this._reG = new Float64Array(n)
-    this._imG = new Float64Array(n)
-    for (let i = 0; i < n; i++) this._reG[i] = data[i]
-    transform(this._reG, this._imG, false)
+    const L = this.blockLen
+    const blocks = Math.floor(data.length / L)
+    this._blocks = blocks
+    this._n = blocks * L
+    this._phi = buildPhaseMask(this.phaseSeed, L)
+    this._reG = []
+    this._imG = []
+    for (let b = 0; b < blocks; b++) {
+      const re = new Float64Array(L)
+      const im = new Float64Array(L)
+      const base = b * L
+      for (let i = 0; i < L; i++) re[i] = data[base + i]
+      transform(re, im, false)
+      this._reG.push(re)
+      this._imG.push(im)
+    }
   }
 
   async init() {
@@ -70,24 +105,50 @@ export class RevealEngine {
     return this
   }
 
-  // Descramble the cached asset spectrum at the current alpha and return the
-  // real time-domain buffer. At the hidden focal alpha this is the clean voice.
+  // Descramble every block's cached spectrum at the current alpha and write the
+  // real time-domain result into the concatenated output buffer. A block resolves
+  // to clean audio only where alpha matches the focal rotation baked into it.
   _render() {
-    const n = this._n
-    const re = this._reG.slice()
-    const im = this._imG.slice()
-    rotatePhase(re, im, this._phi, -this.alpha)
-    transform(re, im, true)
-    const out = new Float32Array(n)
-    for (let i = 0; i < n; i++) out[i] = re[i]
+    const L = this.blockLen
+    const out = new Float32Array(this._n)
+    for (let b = 0; b < this._blocks; b++) {
+      const re = this._reG[b].slice()
+      const im = this._imG[b].slice()
+      rotatePhase(re, im, this._phi, -this.alpha)
+      transform(re, im, true)
+      const base = b * L
+      for (let i = 0; i < L; i++) out[base + i] = re[i]
+    }
     return out
+  }
+
+  // Render all blocks at the current alpha and return only the block that
+  // resolves most strongly right now (highest kurtosis = most speech/babble-like).
+  // This is what plays: turning the dial swaps which station you're tuned to in
+  // real time. Between focals every block is equal phase-noise, so you hear
+  // continuous static; nearing a focal, that block rises above the noise floor and
+  // fades in. The engine never knows which focal is the real message — it just
+  // plays whatever resolves at the current setting.
+  _renderTuned() {
+    const L = this.blockLen
+    const full = this._render()
+    let bestK = -Infinity
+    let bestBase = 0
+    for (let b = 0; b < this._blocks; b++) {
+      const k = blockKurtosis(full, b * L, L)
+      if (k > bestK) {
+        bestK = k
+        bestBase = b * L
+      }
+    }
+    return full.slice(bestBase, bestBase + L)
   }
 
   setReveal(revl) {
     this.revl = Math.max(0, Math.min(this.axisMax, revl))
     this.alpha = alphaForReveal(this.revl, this.axisMax, this.alphaMax)
-    if (this.node && this._reG) {
-      const out = this._render()
+    if (this.node && this._blocks) {
+      const out = this._renderTuned()
       this.node.port.postMessage({ buffer: out }, [out.buffer])
     }
     return this.revl
@@ -96,7 +157,7 @@ export class RevealEngine {
   start() {
     if (this.node) return this
     if (!this.buffer) throw new Error('load() a buffer before start()')
-    const out = this._render()
+    const out = this._renderTuned()
     this.node = new AudioWorkletNode(this.ctx, 'reveal-processor', {
       outputChannelCount: [2],
       processorOptions: { buffer: out },

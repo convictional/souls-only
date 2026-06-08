@@ -107,16 +107,28 @@ intelligible voice only at a hidden point on the same 0 to 1000 dial the font's
 Where the font warps glyph outlines along `REVL`, the audio phase-scrambles the
 recording: an FFT keeps each frequency's amplitude but a seeded mask randomizes
 its phase, so the voice is genuinely destroyed rather than buried under added
-static. Rotating the phase back by the dial amount reconstructs the voice, but
-only where that amount matches the one baked into the asset.
+static. Rotating the phase back by the dial amount reconstructs it, but only
+where that amount matches the one baked into the asset.
+
+To keep that point hard to find by waveform analysis rather than by ear, the
+asset carries **several stations** at different dial points: the real message
+plus **babble decoys** built from the message's own reordered frames. Because a
+decoy is just a permutation of the real clip, it has the **same kurtosis and the
+same energy-envelope statistics**, so a sweep that scores each dial position for
+"speech-likeness" lights up identically at every station and cannot tell which is
+real. Tuning the dial works like a radio — static between stations, a voice or
+babble surfacing as you pass one — and only recognizing actual words tells the
+message from the decoys.
 
 The intention is to state the same idea in a second medium and push the reveal
 one step further. The font's `REVL` value is a number in the shipped variable
 font; the audio's focal value is **not in the shipped code at all** — it lives
-only in how the offline tool scrambled the asset, so reading the source does not
-hand it over. The honest limit is the font's limit restated: a single bounded
-dial can be swept, so an attacker who renders and judges the audio can still find
-the point. It is a statement device, scoped as such.
+only in how the offline tool built the asset, so reading the source does not hand
+it over. The honest limits: a single bounded dial can still be swept, and the
+decoys defeat the *cheap* statistics (kurtosis, energy envelope) but not a
+determined solver that runs speech-to-text on each station and reads which one is
+coherent. It raises the cost of an automated attack and forces it onto actually
+listening — it is not an unbreakable cipher. A statement device, scoped as such.
 
 See [`audio/README.md`](audio/README.md) to run and build it, and
 [`demo/linkedin-audio.html`](demo/linkedin-audio.html) for a vertical demo that

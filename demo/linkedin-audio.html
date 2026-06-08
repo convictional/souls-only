@@ -126,8 +126,8 @@
         <div class="dstep" id="dMessage"><span class="steplabel">message</span><canvas id="cvMessage"></canvas></div>
       </div>
       <div class="desc-lane">
-        <div class="rstep" id="rAsset"><span>the shipped file has the <b>same spectral energy</b> as the voice, but its phase is scrambled, so it is noise with no words</span></div>
-        <div class="rstep" id="rScramble"><span>a seeded mask <b>rotates every frequency&rsquo;s phase</b>; the amplitudes are left untouched</span></div>
+        <div class="rstep" id="rAsset"><span>the shipped file packs several <b>stations</b> &mdash; the real message plus <b>decoys</b> built from its own reordered frames, so all share its statistics; only one says real words</span></div>
+        <div class="rstep" id="rScramble"><span>each station&rsquo;s <b>phase is scrambled</b> at its own dial point by a seeded mask; the amplitudes are left untouched</span></div>
         <div class="rstep" id="rSpectrum"><span>an <b>FFT</b> splits the voice into frequencies, each with an amplitude and a phase</span></div>
         <div class="rstep" id="rMessage"><span>a spoken message</span></div>
       </div>
@@ -138,7 +138,7 @@
 <script type="module">
   import { transform } from '../audio/src/fft.js'
   import { buildPhaseMask, alphaForReveal, rotatePhase } from '../audio/src/scramble.js'
-  import { AXIS_MAX, ASSET_RATE, PHASE_SEED, ALPHA_MAX } from '../audio/src/constants.js'
+  import { AXIS_MAX, ASSET_RATE, PHASE_SEED, ALPHA_MAX, BLOCK_LEN } from '../audio/src/constants.js'
 
   const ASSET_URL = '../audio/public/assets/message.wav'
 
@@ -218,25 +218,44 @@
   }
 
   // ===== audio engine (Vite-free; ScriptProcessor loops a swappable buffer) =====
+  // The asset is several phase-scrambled "stations" concatenated in time — the
+  // real message plus babble decoys, each baked at its own dial point. We
+  // descramble every station at the current dial and play whichever resolves most
+  // strongly (highest kurtosis), so tuning behaves like a radio: static between
+  // stations, a voice or babble surfacing as you pass one. Only one station says
+  // real words; the decoys share its statistics, so the dial is the only tell.
   let ctx, analyser, scriptNode, freqData
-  let reG, imG, phi, N = 0
+  let reG = [], imG = [], phi, N = 0, blocks = 0, assetRaw = null
   let playBuf = null, pos = 0
   let revl = 0, alpha = 0
   let started = false
 
-  function render() {
-    const re = reG.slice(), im = imG.slice()
-    rotatePhase(re, im, phi, -alpha)
-    transform(re, im, true)
-    const out = new Float32Array(N)
-    for (let i = 0; i < N; i++) out[i] = re[i]
-    return out
+  function kurtosis(a) {
+    let m = 0; for (let i = 0; i < a.length; i++) m += a[i]; m /= a.length
+    let m2 = 0, m4 = 0
+    for (let i = 0; i < a.length; i++) { const d = a[i] - m, d2 = d * d; m2 += d2; m4 += d2 * d2 }
+    m2 /= a.length; m4 /= a.length
+    return m2 > 0 ? m4 / (m2 * m2) : 0
+  }
+  // descramble every block at the current alpha; return the one that resolves most
+  function renderTuned() {
+    let bestK = -Infinity, best = null
+    for (let b = 0; b < blocks; b++) {
+      const re = reG[b].slice(), im = imG[b].slice()
+      rotatePhase(re, im, phi, -alpha)
+      transform(re, im, true)
+      const out = new Float32Array(BLOCK_LEN)
+      for (let i = 0; i < BLOCK_LEN; i++) out[i] = re[i]
+      const k = kurtosis(out)
+      if (k > bestK) { bestK = k; best = out }
+    }
+    return best
   }
   function setDial(v) {
     revl = clamp(v, 0, AXIS_MAX)
     alpha = alphaForReveal(revl, AXIS_MAX, ALPHA_MAX)
     knob.style.left = (revl / AXIS_MAX) * 100 + '%'
-    if (reG) playBuf = render()
+    if (blocks) playBuf = renderTuned()
   }
 
   async function startAudio() {
@@ -244,17 +263,22 @@
     const arr = await (await fetch(ASSET_URL)).arrayBuffer()
     const buf = await ctx.decodeAudioData(arr)
     N = buf.length
-    const data = buf.getChannelData(0)
-    phi = buildPhaseMask(PHASE_SEED, N)
-    reG = new Float64Array(N); imG = new Float64Array(N)
-    for (let i = 0; i < N; i++) reG[i] = data[i]
-    transform(reG, imG, false)
-    playBuf = render()
+    assetRaw = buf.getChannelData(0)
+    blocks = Math.floor(N / BLOCK_LEN)
+    phi = buildPhaseMask(PHASE_SEED, BLOCK_LEN)
+    reG = []; imG = []
+    for (let b = 0; b < blocks; b++) {
+      const re = new Float64Array(BLOCK_LEN), im = new Float64Array(BLOCK_LEN)
+      for (let i = 0; i < BLOCK_LEN; i++) re[i] = assetRaw[b * BLOCK_LEN + i]
+      transform(re, im, false); reG.push(re); imG.push(im)
+    }
+    playBuf = renderTuned()
 
     scriptNode = ctx.createScriptProcessor(4096, 0, 1)
     scriptNode.onaudioprocess = (e) => {
       const o = e.outputBuffer.getChannelData(0)
-      for (let k = 0; k < o.length; k++) { o[k] = playBuf ? playBuf[pos] : 0; pos++; if (pos >= N) pos = 0 }
+      const L = playBuf ? playBuf.length : 1
+      for (let k = 0; k < o.length; k++) { o[k] = playBuf ? playBuf[pos] : 0; pos++; if (pos >= L) pos = 0 }
     }
     analyser = ctx.createAnalyser()
     analyser.fftSize = 1024; analyser.smoothingTimeConstant = 0.55
@@ -410,9 +434,9 @@
     drawSpectrum(document.getElementById('cvSpectrum'), false, INK)
     drawSpectrum(document.getElementById('cvScramble'), true, INK)
     // the shipped asset: show its actual (noise-like) waveform if loaded, else a placeholder
-    if (reG) {
-      const re = reG.slice(), im = imG.slice(); transform(re, im, true)
-      const wv = new Float32Array(2048); for (let i = 0; i < 2048; i++) wv[i] = re[i * Math.floor(N / 2048)]
+    if (assetRaw) {
+      const stepN = Math.max(1, Math.floor(N / 2048))
+      const wv = new Float32Array(2048); for (let i = 0; i < 2048; i++) wv[i] = assetRaw[i * stepN]
       drawWave(document.getElementById('cvAsset'), wv, INK)
     } else {
       // deterministic noise placeholder before audio loads
