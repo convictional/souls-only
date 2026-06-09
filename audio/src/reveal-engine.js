@@ -4,19 +4,14 @@ import { buildPhaseMask, alphaForReveal, rotatePhase } from './scramble.js'
 import { AXIS_MAX, ASSET_RATE, PHASE_SEED, ALPHA_MAX, BLOCK_LEN } from './constants.js'
 import revealWorkletUrl from './reveal-worklet.js?url'
 
-// The focal values are NOT here. The asset is STATIONS phase-scrambled blocks
-// concatenated in time; the dial maps linearly to a phase-rotation amount
-// (alpha) and the engine descrambles every block by -alpha. A block resolves only
-// where alpha matches the rotation baked into it offline, which this code does
-// not know. Playback follows whichever station resolves at the current dial, so
-// the dial behaves like a radio: static between stations, a voice (or babble)
-// emerging as you tune onto one.
-export const PHASE_SEED_DEFAULT = PHASE_SEED
-export const ALPHA_MAX_DEFAULT = ALPHA_MAX
+// Loads the asset, caches each segment's forward FFT, and re-applies the inverse
+// phase rotation for the current control value. The asset is consecutive segments
+// of BLOCK_LEN samples; the control maps to a rotation amount and every segment is
+// rotated by its negation. Playback follows whichever segment resolves most
+// strongly at the current setting.
 
-// Kurtosis of a block (peakiness). Phase-noise sits near 3 (Gaussian); a resolved
-// speech/babble block spikes well above it. Used to pick the currently-tuned
-// station for playback — not to find the focal (the engine has no focal to find).
+// Kurtosis (peakiness) of a segment. Near 3 for phase-noise; higher for a resolved
+// segment. Used to choose which segment to play at the current setting.
 function blockKurtosis(a, base, L) {
   let mean = 0
   for (let i = 0; i < L; i++) mean += a[base + i]
@@ -46,8 +41,8 @@ export class RevealEngine {
     this.revl = 0
     this.alpha = alphaForReveal(0, this.axisMax, this.alphaMax)
 
-    // Per-block cached spectra of the garbled asset, the shared per-bin phase
-    // mask, and the layout (block count, total samples).
+    // Per-segment cached spectra of the asset, the shared per-bin phase mask, and
+    // the layout (segment count, total samples).
     this._reG = [] // Float64Array per block
     this._imG = []
     this._phi = null
@@ -93,7 +88,7 @@ export class RevealEngine {
   async init() {
     if (this.ctx.sampleRate !== ASSET_RATE) {
       console.warn(
-        `RevealEngine: AudioContext sampleRate ${this.ctx.sampleRate} does not match ASSET_RATE ${ASSET_RATE}; the asset will be resampled and the scramble will not cancel (noise at every setting).`,
+        `RevealEngine: AudioContext sampleRate ${this.ctx.sampleRate} does not match ASSET_RATE ${ASSET_RATE}; the asset will be resampled and will not resolve correctly (noise at every setting).`,
       )
     }
     await this.ctx.audioWorklet.addModule(revealWorkletUrl)
@@ -105,9 +100,8 @@ export class RevealEngine {
     return this
   }
 
-  // Descramble every block's cached spectrum at the current alpha and write the
-  // real time-domain result into the concatenated output buffer. A block resolves
-  // to clean audio only where alpha matches the focal rotation baked into it.
+  // Apply the inverse rotation to every cached segment spectrum at the current
+  // alpha and write the real time-domain result into the concatenated buffer.
   _render() {
     const L = this.blockLen
     const out = new Float32Array(this._n)
@@ -122,13 +116,10 @@ export class RevealEngine {
     return out
   }
 
-  // Render all blocks at the current alpha and return only the block that
-  // resolves most strongly right now (highest kurtosis = most speech/babble-like).
-  // This is what plays: turning the dial swaps which station you're tuned to in
-  // real time. Between focals every block is equal phase-noise, so you hear
-  // continuous static; nearing a focal, that block rises above the noise floor and
-  // fades in. The engine never knows which focal is the real message — it just
-  // plays whatever resolves at the current setting.
+  // Render all segments at the current alpha and return only the one that resolves
+  // most strongly right now (highest kurtosis). Turning the control swaps which
+  // segment plays; between resolved settings every segment is equal phase-noise, so
+  // the output is continuous static.
   _renderTuned() {
     const L = this.blockLen
     const full = this._render()

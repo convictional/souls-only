@@ -1,11 +1,7 @@
 // src/scramble.js
-// Spectral phase scrambling: a fundamental, invertible transform that destroys
-// intelligibility without adding noise. It rotates each frequency bin's phase
-// by alpha*phi[k] while leaving magnitude untouched, so the garbled signal has
-// the same spectral energy as the clean one but no temporal structure (no
-// words). Descrambling rotates by the opposite amount. The focal value lives
-// only in how much the asset was pre-rotated; this code maps the dial to alpha
-// linearly and contains no focal value.
+// Per-bin phase rotation in the frequency domain. rotatePhase multiplies bin k by
+// e^{i*alpha*phi[k]} (magnitude unchanged); the inverse rotation uses -alpha.
+// phaseTransform applies it to a real signal via FFT. Invertible, energy-preserving.
 import { mulberry32 } from './rng.js'
 import { transform } from './fft.js'
 
@@ -23,8 +19,7 @@ export function buildPhaseMask(seed, n) {
   return phi
 }
 
-// Linear dial -> phase-rotation amount. No special point; the focal location is
-// baked into the asset, not derivable from this map.
+// Linear map from the control value to a phase-rotation amount.
 export function alphaForReveal(revl, axisMax, alphaMax) {
   const v = Math.max(0, Math.min(axisMax, revl))
   return (v / axisMax) * alphaMax
@@ -44,9 +39,8 @@ export function rotatePhase(re, im, phi, alpha) {
   }
 }
 
-// Phase-transform a real signal by +alpha*phi: forward FFT, rotate, inverse FFT,
-// return the real part. Used offline to garble (alpha > 0) and in tests. The
-// length must be a power of two.
+// Apply +alpha*phi to a real signal: forward FFT, rotate, inverse FFT, return the
+// real part. The length must be a power of two.
 export function phaseTransform(signal, phi, alpha) {
   const n = signal.length
   const re = new Float64Array(n)

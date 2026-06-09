@@ -10,3 +10,14 @@ coverage/
 
 # macOS
 .DS_Store
+
+# adversarial perturbation toolchain (offline). The Python venv and the
+# scratch/verification clips stay local; message_adv.wav IS committed so others
+# can rebuild the scrambled asset with `node tools/garble.mjs` alone (its
+# optimization is not bit-reproducible, so the committed clip is canonical). The
+# perturbed clip is plainly intelligible by ear — it is the message — and is kept
+# in the repo so the build is reproducible, not as a secret.
+tools/adversarial/.venv/
+tools/adversarial/__pycache__/
+tools/adversarial/message.clean.wav
+tools/adversarial/verify_*.wav

@@ -14,7 +14,7 @@ let loaded = false
 let loading = false
 let playing = false
 
-// Rendering a dial change costs one inverse FFT per station, so coalesce rapid
+// Rendering a dial change costs one inverse FFT per segment, so coalesce rapid
 // drag events to one render per animation frame: update the dial/label instantly,
 // but only re-tune the audio to the latest value each frame. This keeps scrubbing
 // smooth and always lands on the value the dial is actually showing.

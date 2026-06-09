@@ -1,97 +1,112 @@
 // tools/garble.mjs
-// Offline: produce the multi-station phase-scrambled public/assets/message.wav.
-// This is the ONLY place the focal values live. Run with: node tools/garble.mjs
-// macOS only (uses `say` to synthesize the clean voice transiently in /tmp;
-// the clean audio is never committed or shipped).
+// Offline asset builder. Node + macOS only (uses `say` to synthesize voices
+// transiently in /tmp; no clean audio is ever committed or shipped). Run with:
+//   node tools/garble.mjs
 //
-// The asset is STATIONS blocks of BLOCK_LEN concatenated in time. One block is
-// the real message; the rest are babble decoys built by re-ordering the real
-// clip's own frames (tools/babble.mjs), so every block shares the real clip's
-// kurtosis AND its energy-envelope CV. Each block is phase-scrambled at its own
-// focal rotation, so the dial resolves it only at that focal. A statistics sweep
-// (kurtosis, envelope CV — the two metrics that have located the focal before)
-// therefore finds STATIONS identical "stations" and cannot tell which speaks
-// real words without recognizing speech — a human ear or STT.
+// THIS FILE is the only place the focal values exist. The output is one mono WAV
+// of STATIONS_DATA.length equal-length segments concatenated in time. Each segment
+// is a short phrase synthesized in the same voice, fit to one block, level-matched,
+// and phase-rotated at its own focal. The runtime maps the dial to a rotation
+// amount and rotates every segment by its negation, so a segment resolves only
+// where the dial matches its focal. Every segment is real, intelligible speech, so
+// nothing in the asset distinguishes the message from the rhymes by signal alone —
+// only by which words you recognize.
 import { execFileSync } from 'node:child_process'
 import { rmSync } from 'node:fs'
 import { readWavMono, writeWavMono } from './wav.mjs'
 import { buildPhaseMask, alphaForReveal, phaseTransform } from '../src/scramble.js'
-import { frameShuffle } from './babble.mjs'
 import { mulberry32 } from '../src/rng.js'
 // Read constants from constants.js, not reveal-engine.js: the latter imports the
 // worklet via a `?url` specifier that plain Node cannot load.
-import { AXIS_MAX, ASSET_RATE, BLOCK_LEN, STATIONS, PHASE_SEED, ALPHA_MAX } from '../src/constants.js'
+import { AXIS_MAX, ASSET_RATE, BLOCK_LEN, PHASE_SEED, ALPHA_MAX } from '../src/constants.js'
 
-// The focal dial value of the REAL message. Lives here, never in shipped code.
-const FOCAL = 650
-// Focal dial values for the decoy stations (STATIONS - 1 of them), spread across
-// the dial with wide separation so each is its own tuning point with static
-// between.
-const DECOY_FOCALS = [180, 420, 880]
-// Frame length (samples) for the babble shuffle: ~93ms at 22050, long enough to
-// carry speech-like texture, short enough that word order is destroyed.
-const FRAME_LEN = 2048
-// Seed for the slot permutation, so the real message is not in an obvious time
-// position and a station's time-slot does not track its focal order.
+// The message plus nine universally-known nursery rhymes, each at its own focal
+// dial value. Focals are spread across the dial with ~90+ separation so each is a
+// distinct tuning point with static between. The message's focal is just one of
+// the ten; the layout shuffle below hides which time-slot carries it.
+// The message segment is a pre-rendered, adversarially-perturbed clip (see
+// tools/adversarial/perturb.py): Whisper-tiny transcribes it as "Little Miss
+// Muffet", while a primed human hears the real words. It is embedded verbatim
+// (no re-normalization, which would scale the perturbation). Decoys are TTS'd here.
+const ADV_MESSAGE = 'tools/adversarial/message_adv.wav'
+const STATIONS_DATA = [
+  { focal: 650, clip: ADV_MESSAGE },
+  { focal: 60, text: 'Twinkle, twinkle, little star, how I wonder what you are.' },
+  { focal: 160, text: 'Mary had a little lamb, its fleece was white as snow.' },
+  { focal: 250, text: 'Row, row, row your boat, gently down the stream.' },
+  { focal: 360, text: 'The itsy bitsy spider climbed up the water spout.' },
+  { focal: 460, text: 'Old MacDonald had a farm, E I E I O.' },
+  { focal: 560, text: 'Humpty Dumpty sat on a wall, Humpty Dumpty had a great fall.' },
+  { focal: 760, text: 'Baa, baa, black sheep, have you any wool?' },
+  { focal: 850, text: 'Jack and Jill went up the hill to fetch a pail of water.' },
+  { focal: 950, text: 'Hickory dickory dock, the mouse ran up the clock.' },
+]
+const STATIONS = STATIONS_DATA.length
+
+// Seed for the slot permutation, so neither the message's time-slot nor the
+// focal-vs-slot order is recoverable from the asset's layout.
 const LAYOUT_SEED = 0x27d4eb2f
 
-const PHRASE = 'This is a souls only audio message.'
 const TMP_AIFF = '/tmp/soa-clean.aiff'
 const TMP_WAV = '/tmp/soa-clean.wav'
 const OUT = 'public/assets/message.wav'
 
-const FOCALS = [FOCAL, ...DECOY_FOCALS]
-if (FOCALS.length !== STATIONS) {
-  throw new Error(`have ${FOCALS.length} focals but STATIONS is ${STATIONS}`)
+// Synthesize one phrase in the default system voice at the asset rate and return
+// mono Float32 samples fit to exactly BLOCK_LEN (truncated or zero-padded) and
+// peak-normalized, so no segment is louder than another (loudness must not betray
+// which one is the message).
+function renderClip(text) {
+  execFileSync('say', ['-o', TMP_AIFF, text])
+  execFileSync('afconvert', ['-f', 'WAVE', '-d', `LEI16@${ASSET_RATE}`, '-c', '1', TMP_AIFF, TMP_WAV])
+  const { sampleRate, samples } = readWavMono(TMP_WAV)
+  if (sampleRate !== ASSET_RATE) throw new Error(`clip rate ${sampleRate} != ASSET_RATE ${ASSET_RATE}`)
+  const clip = new Float32Array(BLOCK_LEN)
+  clip.set(samples.subarray(0, Math.min(samples.length, BLOCK_LEN)))
+  let peak = 0
+  for (let i = 0; i < clip.length; i++) peak = Math.max(peak, Math.abs(clip[i]))
+  if (peak > 0) {
+    const g = 0.8 / peak
+    for (let i = 0; i < clip.length; i++) clip[i] *= g
+  }
+  return clip
 }
 
-// 1. Synthesize the clean voice at the asset rate, transiently.
-execFileSync('say', ['-o', TMP_AIFF, PHRASE])
-execFileSync('afconvert', ['-f', 'WAVE', '-d', `LEI16@${ASSET_RATE}`, '-c', '1', TMP_AIFF, TMP_WAV])
+// Load a pre-rendered clip (already at ASSET_RATE and BLOCK_LEN-sized, level-set)
+// and fit it to exactly BLOCK_LEN without altering its samples.
+function loadClip(path) {
+  const { sampleRate, samples } = readWavMono(path)
+  if (sampleRate !== ASSET_RATE) throw new Error(`${path} rate ${sampleRate} != ASSET_RATE ${ASSET_RATE}`)
+  const clip = new Float32Array(BLOCK_LEN)
+  clip.set(samples.subarray(0, Math.min(samples.length, BLOCK_LEN)))
+  return clip
+}
 
 try {
-  // 2. Read clean samples.
-  const { sampleRate, samples: clean } = readWavMono(TMP_WAV)
-  if (sampleRate !== ASSET_RATE) {
-    throw new Error(`clean rate ${sampleRate} != ASSET_RATE ${ASSET_RATE}`)
-  }
-  if (clean.length > BLOCK_LEN) {
-    throw new Error(`clean is ${clean.length} samples, longer than BLOCK_LEN ${BLOCK_LEN}; shorten the phrase or raise BLOCK_LEN`)
-  }
-
-  // 3. Pad to the power-of-two block length so each block's FFT is exact.
-  const realClip = new Float32Array(BLOCK_LEN)
-  realClip.set(clean)
-
-  // 4. Decide which time-slot holds the real message: permute the focal list so
-  // neither the real block's position nor the focal-vs-slot order is obvious.
-  const slotFocals = FOCALS.slice()
+  // Decide which time-slot holds each phrase: a seeded permutation so the message
+  // is not in an obvious position and a slot's order does not track its focal.
+  const order = STATIONS_DATA.map((_, i) => i)
   const rng = mulberry32(LAYOUT_SEED)
-  for (let i = slotFocals.length - 1; i > 0; i--) {
+  for (let i = order.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1))
-    ;[slotFocals[i], slotFocals[j]] = [slotFocals[j], slotFocals[i]]
+    ;[order[i], order[j]] = [order[j], order[i]]
   }
 
-  // 5. Build each block: the real clip at its focal, babble decoys (matched
-  // statistics, scrambled word order) at theirs. Phase-scramble at the block's
-  // focal rotation; descrambling at that same rotation in the runtime resolves it.
+  // Build each segment: synthesize, fit, level-match, phase-rotate at its focal.
   const phi = buildPhaseMask(PHASE_SEED, BLOCK_LEN)
   const asset = new Float32Array(BLOCK_LEN * STATIONS)
-  for (let s = 0; s < STATIONS; s++) {
-    const focal = slotFocals[s]
-    const clip = focal === FOCAL ? realClip : frameShuffle(realClip, PHASE_SEED ^ (focal + 1), FRAME_LEN)
+  for (let slot = 0; slot < STATIONS; slot++) {
+    const { focal, text, clip: clipPath } = STATIONS_DATA[order[slot]]
+    const clip = clipPath ? loadClip(clipPath) : renderClip(text)
     const garbled = phaseTransform(clip, phi, alphaForReveal(focal, AXIS_MAX, ALPHA_MAX))
-    asset.set(garbled, s * BLOCK_LEN)
+    asset.set(garbled, slot * BLOCK_LEN)
   }
 
-  // 6. Write the garbled asset.
   writeWavMono(OUT, asset, ASSET_RATE)
   console.log(
-    `wrote ${OUT}: ${STATIONS} stations x ${BLOCK_LEN} samples at ${ASSET_RATE} Hz ` +
-      `(${(asset.length / ASSET_RATE).toFixed(1)}s); real message at focal dial ${FOCAL}`,
+    `wrote ${OUT}: ${STATIONS} segments x ${BLOCK_LEN} samples at ${ASSET_RATE} Hz ` +
+      `(${(asset.length / ASSET_RATE).toFixed(1)}s)`,
   )
 } finally {
-  // Always remove the transient clean audio.
   rmSync(TMP_AIFF, { force: true })
   rmSync(TMP_WAV, { force: true })
 }

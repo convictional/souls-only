@@ -1,9 +1,7 @@
 // src/reveal-worklet.js
-// Loops a precomputed buffer and plays it. The main thread renders the
-// descrambled signal for the current dial position (one inverse FFT) and posts
-// the new buffer here; the processor swaps it in while keeping its playback
-// position continuous. This file has no imports and bundles cleanly as a
-// standalone worklet. No focal value lives here.
+// Loops a precomputed buffer and plays it. The main thread posts a freshly rendered
+// buffer on each control change; the processor swaps it in while keeping its
+// playback position continuous. No imports, bundles as a standalone worklet.
 class RevealProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super()
