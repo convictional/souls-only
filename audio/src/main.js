@@ -1,6 +1,11 @@
 import { RevealEngine } from './reveal-engine.js'
 import { nextReveal } from './keys.js'
+import { assetUrl } from './asset-url.js'
 import { ASSET_RATE } from './constants.js'
+
+// Which asset to load: the shipped ten-station file by default, or ?asset=<name>
+// for an alternate (e.g. the overlap experiment, ?asset=overlap-3.wav).
+const ASSET = assetUrl(location.search)
 
 const toggle = document.getElementById('toggle')
 const slider = document.getElementById('revl')
@@ -63,7 +68,7 @@ toggle.addEventListener('click', async () => {
   if (!loaded) {
     loading = true
     try {
-      await engine.load('/assets/message.wav')
+      await engine.load(ASSET)
       await engine.init()
       loaded = true
     } finally {
