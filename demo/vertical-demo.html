@@ -6,10 +6,10 @@
 <title>Souls Only - vertical demo</title>
 <link rel="stylesheet" href="https://use.typekit.net/lbl4dtu.css">
 <style>
-  @font-face { font-family:"Souls Only VF"; src:url("./SoulsOnly-VF.ttf?v=ld4") format("truetype"); }
+  @font-face { font-family:"Souls Only VF"; src:url("./SoulsOnly-VF.ttf?v=decoy1") format("truetype"); }
   :root {
     /* fixed 9:16 recording size: 540x960 logical = 1080x1920 on a retina capture.
-       override height with ?h=, e.g. linkedin.html?h=900&guides */
+       override height with ?h=, e.g. vertical-demo.html?h=900&guides */
     --frameH:960px; --u:calc(var(--frameH) / 100);   /* 1 --u = 1% of frame height */
     --bg:#fffdf5; --card:#fcfbf7; --panel:#f7f3ea; --line:#efebe2;
     --fg:oklch(19.8678% .002146 95.1593); --body:#4a443b; --muted:#8a8175;
@@ -117,11 +117,15 @@
                      92%,100% { transform:translateX(-14px); } }
   @keyframes tileR { 0%,18% { transform:translateX(14px); }  45%,65% { transform:translateX(0); }
                      92%,100% { transform:translateX(14px); } }
-  /* variable-font row: REVL breathes 0 <-> 650, resting at each end */
-  #gRevl { animation:revlBreathe 6s ease-in-out infinite; }
-  @keyframes revlBreathe { 0%,20% { font-variation-settings:"REVL" 0; }
-                           45%,70% { font-variation-settings:"REVL" 650; }
-                           95%,100% { font-variation-settings:"REVL" 0; } }
+  /* variable-font row: REVL steps through several decoy focal points (the same
+     glyph snaps into DIFFERENT real letters), then rests on the true letter at
+     650; the noise between stops is the morph in transit. */
+  #gRevl { animation:revlReveal 9s ease-in-out infinite; }
+  @keyframes revlReveal { 0%,9%    { font-variation-settings:"REVL" 70; }   /* decoy */
+                          18%,27%  { font-variation-settings:"REVL" 390; }  /* decoy */
+                          36%,45%  { font-variation-settings:"REVL" 810; }  /* decoy */
+                          56%,84%  { font-variation-settings:"REVL" 650; }  /* the true letter */
+                          93%,100% { font-variation-settings:"REVL" 70; } }
 
   #dKbd { padding:calc(.3 * var(--u)) 4% 0; flex-direction:column; align-items:center; }
   .kbdvid { flex:1; min-height:0; aspect-ratio:1.1/1; width:auto; max-width:100%;
@@ -149,7 +153,7 @@
         </div>
       </div>
     </div>
-    <div class="scrubhint">click + drag the text to bring it into focus</div>
+    <div class="scrubhint">click + drag to scrub &mdash; most spots are decoys; the truth hides at one</div>
     <svg id="wireA" aria-hidden="true"></svg>
 
     <!-- MIDDLE + BOTTOM: the build, bottom -> top -->
@@ -194,7 +198,7 @@
         </div>
       </div>
       <div class="desc-lane">
-        <div class="rstep" id="rRevl"><span>a variable axis (usually for weight or slant) scatters every character, until scrubbing dials it into focus</span></div>
+        <div class="rstep" id="rRevl"><span>a variable axis (usually for weight or slant) has many focal points: most snap the letters into real but <b>wrong</b> words (decoys) &mdash; the true text hides at one secret spot</span></div>
         <div class="rstep" id="rTile"><span>each letter you see is actually two glyphs meeting at an invisible seam</span></div>
         <div class="rstep" id="rGsub"><span>each carrier pair ligates into a half-glyph, the same trick that turns ae into &aelig; in some fonts</span></div>
         <div class="rstep" id="rCmap"><span><code>SoulsOnly.ttf</code>&rsquo;s CMAP table maps carriers to blank glyphs</span></div>
