@@ -1,14 +1,17 @@
 from cipher import charset
 
 
-def test_charset_is_full_printable_plus_space():
+def test_charset_is_full_printable_and_space_is_a_literal_passthrough():
     assert charset.LOWER == "abcdefghijklmnopqrstuvwxyz"
     assert charset.UPPER == "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     assert charset.DIGITS == "0123456789"
     assert len(charset.SYMBOLS) == 32
     assert len(charset.PRINTABLE) == 94
     assert charset.SPACE == " "
-    assert charset.SPACE in charset.CHARSET and len(charset.CHARSET) == 95
+    # Space is NOT ciphered: it stays a literal space so the font wraps and
+    # selects like normal text anywhere it is used.
+    assert charset.SPACE not in charset.CHARSET
+    assert charset.CHARSET == charset.PRINTABLE and len(charset.CHARSET) == 94
 
 
 def test_fragment_classes_include_uppercase_bowl():
@@ -31,13 +34,16 @@ def test_left_slot_shares_within_class_only():
     assert charset.left_slot("O") == charset.left_slot("Q") == "cls_ubowl"
     assert charset.left_slot("b") == "L_b"
     assert charset.left_slot("5") == "L_5"
-    assert charset.left_slot(" ") == "SP_L"
 
 
 def test_right_slot_is_per_char():
     assert charset.right_slot("a") == "R_a"
     assert charset.right_slot("O") == "R_O"
-    assert charset.right_slot(" ") == "SP_R"
+
+
+def test_space_has_no_half_slots():
+    slots = charset.half_slots()
+    assert "SP_L" not in slots and "SP_R" not in slots
 
 
 def test_half_slots_unique_and_cover_charset():
