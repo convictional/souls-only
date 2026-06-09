@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Souls Only Audio - vertical demo</title>
+<style>
+  :root {
+    /* fixed 9:16 recording size: 540x960 logical = 1080x1920 on a retina capture.
+       override height with ?h=, e.g. vertical-demo.html?h=900&guides */
+    --frameH:960px; --u:calc(var(--frameH) / 100);   /* 1 --u = 1% of frame height */
+    --bg:#fffdf5; --card:#fcfbf7; --panel:#f7f3ea; --line:#efebe2;
+    --fg:oklch(19.8678% .002146 95.1593); --body:#4a443b; --muted:#8a8175;
+    --primary:#2b7fff; --neutral:#292524;
+    --code-size:calc(2 * var(--u));
+    --sans:ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono:ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  }
+  * { box-sizing:border-box; }
+  html { height:100%; }
+  body { margin:0; min-height:100%; background:#e9e5da; display:flex; font-family:var(--sans); }
+  .frame { position:relative; margin:auto; width:calc(56.25 * var(--u)); height:var(--frameH);
+           flex:none; background:#1B1917; color:var(--fg); overflow:hidden;
+           display:flex; flex-direction:column;
+           gap:calc(.8 * var(--u)); padding:calc(2.2 * var(--u)) 2.5% calc(1.6 * var(--u));
+           user-select:none; }
+  /* ?guides : everything outside the frame turns red - size the Loom region so
+     that NO red is visible and it matches the frame exactly */
+  body.guides { background:#ff3b30; }
+  #guidelabel { position:fixed; top:8px; left:8px; z-index:99; background:#ff3b30; color:#fff;
+                font:600 13px/1.4 var(--sans); padding:6px 10px; border-radius:6px; }
+
+  /* ---- browser chrome (top): the audio tuner app ---- */
+  .browser { background:var(--card); border:1px solid var(--line); border-radius:12px;
+             box-shadow:0 4px 16px rgba(20,16,8,.08); overflow:hidden; flex:0 0 auto; }
+  .bbar { display:flex; align-items:center; gap:7px; padding:7px 11px; background:var(--panel);
+          border-bottom:1px solid var(--line); }
+  .dot { width:11px; height:11px; border-radius:50%; }
+  .dot.r{background:#ff5f57} .dot.y{background:#febc2e} .dot.g{background:#28c840}
+  .addr { flex:1; margin-left:6px; background:var(--card); border:1px solid var(--line);
+          border-radius:6px; padding:3px 10px; font:12px/1.3 var(--mono); color:var(--muted);
+          text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  /* the tuner page - dark, like the running app */
+  .tuner { background:#252322; padding:calc(1.2 * var(--u)) 6% calc(1.4 * var(--u));
+           display:flex; flex-direction:column; gap:calc(.7 * var(--u)); }
+  /* the prime: the words shown on screen so a human knows what to listen for.
+     starts dim, lights blue on the cascade's final beat */
+  #prime { text-align:center; font-size:calc(2.3 * var(--u)); line-height:1.15; font-weight:600;
+           color:rgba(255,253,245,.92); transition:color .4s ease; white-space:nowrap; }
+  #prime.blue { color:var(--primary); }
+  .primecap { text-align:center; font-size:calc(1.15 * var(--u)); color:rgba(255,253,245,.5);
+              font-style:italic; margin-top:calc(-.3 * var(--u)); }
+  /* oscilloscope: the time-domain signal. noise between stations, a voiced wave on
+     a station - the same peakiness the engine tunes to. magnitude statistics are
+     matched across every station, so a frequency view would look identical; the
+     time-domain view is the honest tell. */
+  .scopebox { position:relative; border:1px solid rgba(231,229,228,.18); border-radius:10px;
+              background:#1B1917; overflow:hidden; height:calc(15 * var(--u));
+              transition:box-shadow .15s ease, border-color .15s ease; }
+  .scopebox.lock { border-color:var(--primary); box-shadow:0 0 0 1px var(--primary), 0 0 calc(2*var(--u)) rgba(43,127,255,.4) inset; }
+  #scope { display:block; width:100%; height:100%; }
+  .lockpill { position:absolute; top:calc(.6*var(--u)); right:calc(.8*var(--u));
+              font:600 calc(1.15*var(--u))/1 var(--mono); color:var(--primary);
+              background:rgba(43,127,255,.12); border:1px solid rgba(43,127,255,.5);
+              padding:calc(.4*var(--u)) calc(.8*var(--u)); border-radius:999px;
+              opacity:0; transition:opacity .15s ease; }
+  .scopebox.lock .lockpill { opacity:1; }
+
+  /* dial row: Play + the reveal slider 0..1000 */
+  .dialrow { display:flex; align-items:center; gap:calc(1.2*var(--u)); }
+  #play { flex:none; font:600 calc(1.6*var(--u))/1 var(--sans); color:#fffdf5;
+          background:var(--primary); border:none; border-radius:999px;
+          padding:calc(.9*var(--u)) calc(2.4*var(--u)); cursor:pointer; }
+  #play:active { transform:translateY(1px); }
+  .dialwrap { flex:1; display:flex; flex-direction:column; gap:calc(.3*var(--u)); }
+  #revl { width:100%; accent-color:var(--primary); cursor:ew-resize; }
+  .dlabels { display:flex; justify-content:space-between; font:calc(1.05*var(--u))/1 var(--mono);
+             color:rgba(255,253,245,.5); }
+  .dlabels b { color:rgba(255,253,245,.85); font-variant-numeric:tabular-nums; }
+  #revlValue { color:rgba(255,253,245,.85); font-variant-numeric:tabular-nums; }
+
+  .scrubhint { text-align:center; color:rgba(255,253,245,.55); font-size:calc(1.15 * var(--u));
+               font-style:italic; margin-top:calc(-.3 * var(--u)); }
+
+  /* elbow connector from the top build step, out the left margin, up to the tuner */
+  #wireA { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:5; }
+  #wireA .wire { fill:none; stroke:var(--primary); stroke-width:1; opacity:0;
+                 marker-end:url(#ahBlue); transition:opacity .25s ease; }
+  #wireA .wire.on { opacity:1; }
+
+  /* ---- pipeline: bordered demo lane (left) + borderless descriptions (right) ---- */
+  .pipe { flex:1 1 auto; display:grid; grid-template-columns:44% 1fr;
+          grid-template-rows:minmax(0,1fr); column-gap:4%; min-height:0; }
+  .demo-lane { position:relative; min-height:0; border:1px solid rgba(231,229,228,.14); border-radius:12px;
+               background:#252322; display:flex; flex-direction:column; overflow:hidden; }
+  .desc-lane { display:flex; flex-direction:column; min-height:0; }
+  .dstep, .rstep { flex:1; min-height:0; display:flex; align-items:center; position:relative; }
+  .dstep { justify-content:center; padding:calc(.3 * var(--u)) 3%; flex-direction:column; gap:calc(.4*var(--u)); }
+  .rstep { padding:calc(.5 * var(--u)) 0; font-size:calc(1.7 * var(--u)); line-height:1.32; color:rgba(255,253,245,.72); }
+  .rstep b { color:#fffdf5; font-weight:650; }
+  .rstep code { font-family:var(--mono); font-size:.88em; color:#fffdf5;
+                background:rgba(255,253,245,.09); padding:.05em .35em; border-radius:4px; }
+
+  /* connector wires between steps; each brightens as the cascade reaches it */
+  #wires { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:2; }
+  #wires .wire { fill:none; stroke:#E7E5E4; stroke-width:1; opacity:.55;
+                 marker-end:url(#ahGray); transition:stroke .15s ease, opacity .15s ease; }
+  #wires .wire.on { stroke:var(--primary); opacity:1; marker-end:url(#ahBlue); }
+
+  /* per-step content */
+  .steplabel { font:600 calc(1.3*var(--u))/1 var(--sans); color:#E7E5E4; letter-spacing:.01em;
+               transition:color .15s ease; }
+  .stepmono { font-family:var(--mono); font-size:calc(1.45*var(--u)); color:#E7E5E4;
+              transition:color .15s ease; }
+  .stepmono .hl-num { color:#E7E5E4; }
+  .wf { display:block; width:78%; height:calc(4.6*var(--u)); }
+  .wf path { fill:none; stroke:#E7E5E4; stroke-width:1.4; stroke-linejoin:round; stroke-linecap:round;
+             transition:stroke .15s ease; }
+  /* the cascade: a passing step turns its ink blue */
+  .dstep.hl .steplabel, .dstep.hl .stepmono { color:var(--primary); }
+  .dstep.hl .wf path { stroke:var(--primary); }
+  .dstep.hl .station.msg { background:var(--primary); border-color:var(--primary); }
+
+  /* ten-station strip: nine identical ticks, one quietly the message. they look
+     alike on purpose - matched statistics, indistinguishable to a sweep. */
+  .stations { display:flex; align-items:flex-end; justify-content:center; gap:calc(2.2*var(--u));
+              height:calc(4.4*var(--u)); width:88%; }
+  .station { display:flex; flex-direction:column; align-items:center; gap:calc(.35*var(--u)); }
+  .station .tick { width:2px; height:calc(2.4*var(--u)); background:rgba(231,229,228,.55); }
+  .station .stxt { font:calc(.95*var(--u))/1 var(--mono); color:transparent; }
+  .station.msg .tick { height:calc(3.6*var(--u)); background:#E7E5E4; }
+  .station.msg .stxt { color:#E7E5E4; font-weight:700; }
+
+  /* adversarial step: source -> model -> wrong transcript, stacked to fit the lane */
+  .adv { display:flex; flex-direction:column; align-items:center; gap:calc(.25*var(--u));
+         font-family:var(--mono); font-size:calc(1.25*var(--u)); color:#E7E5E4; white-space:nowrap; }
+  .adv .box { border:1px solid rgba(231,229,228,.4); border-radius:6px;
+              padding:calc(.35*var(--u)) calc(.8*var(--u)); white-space:nowrap; }
+  .adv .arrow { color:rgba(231,229,228,.6); line-height:1; }
+  .adv .wrong { color:#E7E5E4; }
+  .dstep.hl .adv .box, .dstep.hl .adv .wrong, .dstep.hl .adv .arrow { color:var(--primary); border-color:var(--primary); }
+</style>
+</head>
+<body>
+  <div class="frame">
+
+    <!-- TOP: the listener's browser, running the tuner -->
+    <div class="browser">
+      <div class="bbar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="addr">convictional.com/souls-only-audio</span>
+      </div>
+      <div class="tuner">
+        <div id="prime">&ldquo;This is a souls only audio message.&rdquo;</div>
+        <div class="primecap">the words on screen are the prime &mdash; now find the voice that says them</div>
+        <div class="scopebox" id="scopebox">
+          <canvas id="scope" width="900" height="220"></canvas>
+          <span class="lockpill">&#9612; voice</span>
+        </div>
+        <div class="dialrow">
+          <button id="play">Play</button>
+          <div class="dialwrap">
+            <input id="revl" type="range" min="0" max="1000" step="1" value="0" aria-label="Reveal" />
+            <div class="dlabels"><span>noise</span><span><b id="revlValue">0</b> / 1000</span><span>noise</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="scrubhint">press play, then drag the dial &mdash; the message is the one voice you don&rsquo;t know by heart</div>
+    <svg id="wireA" aria-hidden="true"></svg>
+
+    <!-- BOTTOM: how the message is hidden, bottom -> top -->
+    <div class="pipe">
+      <div class="demo-lane">
+        <svg id="wires" aria-hidden="true">
+          <defs>
+            <marker id="ahGray" markerWidth="7" markerHeight="7" refX="5.7" refY="3.5" orient="auto" markerUnits="userSpaceOnUse">
+              <path d="M0,0 L7,3.5 L0,7 z" fill="#E7E5E4"/>
+            </marker>
+            <marker id="ahBlue" markerWidth="7" markerHeight="7" refX="5.7" refY="3.5" orient="auto" markerUnits="userSpaceOnUse">
+              <path d="M0,0 L7,3.5 L0,7 z" fill="#2b7fff"/>
+            </marker>
+          </defs>
+        </svg>
+
+        <div class="dstep" id="dReveal">
+          <span class="steplabel">tuned reveal</span>
+          <svg class="wf" id="wfReveal" viewBox="0 0 100 28" preserveAspectRatio="none"><path/></svg>
+        </div>
+        <div class="dstep" id="dAdv">
+          <span class="steplabel">adversarial layer</span>
+          <div class="adv">
+            <span class="box">Whisper-tiny</span><span class="arrow">&darr;</span>
+            <span class="wrong">&ldquo;Little Miss Muffet&rdquo;</span>
+          </div>
+        </div>
+        <div class="dstep" id="dStations">
+          <span class="steplabel">ten stations, all real speech</span>
+          <div class="stations" id="stations"></div>
+        </div>
+        <div class="dstep" id="dScramble">
+          <span class="steplabel">phase scramble</span>
+          <span class="stepmono">X<sub>k</sub> &times; e<sup>&#8202;i&middot;&alpha;&middot;&phi;<sub>k</sub></sup></span>
+          <svg class="wf" id="wfNoise" viewBox="0 0 100 28" preserveAspectRatio="none"><path/></svg>
+        </div>
+        <div class="dstep" id="dClean">
+          <span class="steplabel">clean speech (never ships)</span>
+          <svg class="wf" id="wfClean" viewBox="0 0 100 28" preserveAspectRatio="none"><path/></svg>
+        </div>
+      </div>
+
+      <div class="desc-lane">
+        <div class="rstep" id="rReveal"><span>at one hidden dial point, a primed human hears the real words &mdash; the same top-down priming the font uses, made the defense</span></div>
+        <div class="rstep" id="rAdv"><span>a tiny perturbation makes <b>Whisper-tiny</b> transcribe it as <b>&ldquo;Little Miss Muffet&rdquo;</b> &mdash; still clear to a human ear</span></div>
+        <div class="rstep" id="rStations"><span>nine nursery rhymes + the message, all real speech &mdash; a speech-likeness sweep <b>can&rsquo;t rank them</b></span></div>
+        <div class="rstep" id="rScramble"><span>an FFT randomizes each bin&rsquo;s <b>phase</b>, not its magnitude; the dial applies <code>&minus;&alpha;</code> to undo it</span></div>
+        <div class="rstep" id="rClean"><span>spoken once; this clean recording is <b>never shipped</b>, only its scrambled form</span></div>
+      </div>
+    </div>
+
+  </div>
+
+<script type="module">
+  import { RevealEngine } from '/src/reveal-engine.js'
+  import { nextReveal } from '/src/keys.js'
+  import { ASSET_RATE } from '/src/constants.js'
+
+  // ?h=900 overrides the frame height (stays 9:16); ?guides shows the Loom crop outline
+  const qp = new URLSearchParams(location.search);
+  // default: the 9:16 frame grows to fill the viewport (so the content uses the
+  // available space, not a fixed 540px strip). ?h= pins a height for recording.
+  const fitFrame = () => {
+    const h = Math.min(window.innerHeight, window.innerWidth * 16 / 9);
+    document.documentElement.style.setProperty('--frameH', Math.floor(h) + 'px');
+  };
+  if (qp.get('h')) document.documentElement.style.setProperty('--frameH', parseInt(qp.get('h'), 10) + 'px');
+  else { fitFrame(); window.addEventListener('resize', fitFrame); }
+
+  // ?asset=overlap-3.wav loads an alternate asset (e.g. the code-division overlap
+  // experiment); defaults to the shipped ten-station file. Basename only.
+  const ASSET = '/assets/' + (qp.get('asset') || 'message.wav').replace(/[^a-zA-Z0-9._-]/g, '');
+  if (qp.has('guides')) {
+    document.body.classList.add('guides');
+    const fr = document.querySelector('.frame').getBoundingClientRect();
+    const lab = document.createElement('div'); lab.id = 'guidelabel';
+    lab.textContent = `set browser zoom to 100% (Cmd+0), then size the Loom region until no red shows`
+      + ` - target ${Math.round(fr.width)} x ${Math.round(fr.height)}`;
+    document.body.appendChild(lab);
+  }
+
+  // ---- static visuals: the ten-station strip + the three reference waveforms ----
+  // nine rhyme stations + the message, the message placed among them. only it is
+  // marked on screen; the nine look identical, as a statistics sweep would see them.
+  const STATIONS = ['', '', '', 'msg', '', '', '', '', '', ''];
+  const stationsEl = document.getElementById('stations');
+  STATIONS.forEach((kind) => {
+    const s = document.createElement('div');
+    s.className = 'station' + (kind === 'msg' ? ' msg' : '');
+    s.innerHTML = `<span class="tick"></span><span class="stxt">${kind === 'msg' ? 'msg' : '.'}</span>`;
+    stationsEl.appendChild(s);
+  });
+
+  // sample a path across the 0..100 x 0..28 viewBox. "voiced" = an amplitude-
+  // modulated harmonic stack (looks like speech); "noise" = gaussian-ish fuzz.
+  const wfPath = (mode, seed = 1) => {
+    const N = 220, mid = 14, d = [];
+    let r = seed * 2654435761 >>> 0;
+    const rnd = () => { r = (r * 1664525 + 1013904223) >>> 0; return r / 4294967296; };
+    for (let i = 0; i < N; i++) {
+      const x = (i / (N - 1)) * 100;
+      let y;
+      if (mode === 'noise') {
+        y = mid + (rnd() - 0.5) * 22;
+      } else {
+        const t = i / (N - 1);
+        const env = 0.55 + 0.45 * Math.sin(t * Math.PI * 3.2) * Math.sin(t * Math.PI * 1.1);
+        y = mid - env * (6.5 * Math.sin(t * 38) + 3.2 * Math.sin(t * 91 + 1) + 1.6 * Math.sin(t * 150 + 2));
+      }
+      d.push(`${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`);
+    }
+    return d.join(' ');
+  };
+  document.querySelector('#wfClean path').setAttribute('d', wfPath('voiced', 7));
+  document.querySelector('#wfReveal path').setAttribute('d', wfPath('voiced', 7));
+  document.querySelector('#wfNoise path').setAttribute('d', wfPath('noise', 23));
+
+  // ---- live tuner: real RevealEngine playback + a time-domain oscilloscope ----
+  const playBtn = document.getElementById('play');
+  const slider = document.getElementById('revl');
+  const valueLabel = document.getElementById('revlValue');
+  const scopebox = document.getElementById('scopebox');
+  const canvas = document.getElementById('scope');
+  const g = canvas.getContext('2d');
+
+  const ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: ASSET_RATE });
+  const engine = new RevealEngine(ctx);
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = 2048;
+  engine.connect(analyser);
+  analyser.connect(ctx.destination);
+  const td = new Uint8Array(analyser.fftSize);
+
+  let loaded = false, loading = false, playing = false;
+
+  // coalesce rapid drag events to one engine re-tune per frame (one inverse FFT
+  // per segment is the cost), exactly like the app's main.js
+  let pendingReveal = null, renderQueued = false;
+  const flushReveal = () => {
+    renderQueued = false;
+    if (pendingReveal === null) return;
+    const v = pendingReveal; pendingReveal = null;
+    if (playing) engine.setReveal(v);
+  };
+  const applyReveal = (v) => {
+    slider.value = String(v); valueLabel.textContent = String(v);
+    pendingReveal = v;
+    if (!renderQueued) { renderQueued = true; requestAnimationFrame(flushReveal); }
+  };
+  applyReveal(Number(slider.value));
+  slider.addEventListener('input', () => applyReveal(Number(slider.value)));
+  slider.addEventListener('keydown', (e) => {
+    const v = nextReveal(Number(slider.value), e);
+    if (v === null) return;
+    e.preventDefault(); applyReveal(v);
+  });
+
+  playBtn.addEventListener('click', async () => {
+    if (loading) return;
+    if (ctx.state === 'suspended') await ctx.resume();
+    if (!loaded) {
+      loading = true; playBtn.textContent = '...';
+      try {
+        await engine.load(ASSET);
+        await engine.init();
+        loaded = true;
+      } finally { loading = false; }
+    }
+    if (!playing) {
+      engine.setReveal(Number(slider.value));
+      engine.start();
+      playing = true; playBtn.textContent = 'Stop';
+      slider.focus();
+    } else {
+      engine.stop(); playing = false; playBtn.textContent = 'Play';
+    }
+  });
+
+  // oscilloscope: draw the live time-domain signal. flat-ish noise between
+  // stations; a peaky voiced waveform on one. kurtosis (peakiness) drives the
+  // "lock" glow - the same statistic the engine tunes by.
+  let phase = 0;
+  const drawScope = () => {
+    const w = canvas.width, h = canvas.height, mid = h / 2;
+    g.clearRect(0, 0, w, h);
+    g.lineWidth = 2; g.strokeStyle = playing ? '#9fc2ff' : 'rgba(231,229,228,.35)';
+    g.beginPath();
+    if (playing) {
+      analyser.getByteTimeDomainData(td);
+      // kurtosis of the centered samples -> peakiness; map to a 0..1 lock amount
+      let mean = 0; for (let i = 0; i < td.length; i++) mean += td[i]; mean /= td.length;
+      let m2 = 0, m4 = 0;
+      for (let i = 0; i < td.length; i++) { const dv = td[i] - mean; const d2 = dv * dv; m2 += d2; m4 += d2 * d2; }
+      m2 /= td.length; m4 /= td.length;
+      const kurt = m2 > 1e-6 ? m4 / (m2 * m2) : 0;        // ~3 = noise, higher = voiced
+      const lock = Math.max(0, Math.min(1, (kurt - 3.2) / 3));
+      scopebox.classList.toggle('lock', lock > 0.45);
+      g.strokeStyle = `rgb(${Math.round(159 + 96 * lock)},${Math.round(194 + 4 * lock)},255)`;
+      const step = w / td.length;
+      for (let i = 0; i < td.length; i++) {
+        const y = mid + ((td[i] - 128) / 128) * (mid * 0.92);
+        i === 0 ? g.moveTo(0, y) : g.lineTo(i * step, y);
+      }
+    } else {
+      // idle: a faint live noise floor so the scope never looks frozen
+      phase += 0.05;
+      scopebox.classList.remove('lock');
+      for (let x = 0; x <= w; x += 4) {
+        const n = (Math.sin(x * 0.13 + phase) + Math.sin(x * 0.07 - phase * 1.3)) * 3
+          + (((x * 2654435761 + (phase * 60 | 0)) >>> 0) / 4294967296 - 0.5) * 10;
+        x === 0 ? g.moveTo(0, mid + n) : g.lineTo(x, mid + n);
+      }
+    }
+    g.stroke();
+    requestAnimationFrame(drawScope);
+  };
+  requestAnimationFrame(drawScope);
+
+  // ---- connector wires (mirror of the font demo) ----
+  const frameEl = document.querySelector('.frame');
+  const lane = document.querySelector('.demo-lane');
+  const wiresSvg = document.getElementById('wires');
+  const wireASvg = document.getElementById('wireA');
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  const order = ['Clean', 'Scramble', 'Stations', 'Adv', 'Reveal'];   // bottom -> top
+
+  // elbow path: straight verticals joined by a rounded horizontal jog
+  const wirePath = (sx, sy, ex, ey) => {
+    if (Math.abs(ex - sx) < 12) return `M ${sx} ${sy} L ${ex} ${ey}`;
+    const r = Math.min(8, Math.abs(ex - sx) / 2);
+    const my = (sy + ey) / 2, d = ex > sx ? 1 : -1;
+    return `M ${sx} ${sy} L ${sx} ${my + r} Q ${sx} ${my} ${sx + d * r} ${my} ` +
+           `L ${ex - d * r} ${my} Q ${ex} ${my} ${ex} ${my - r} L ${ex} ${ey}`;
+  };
+  const contentOf = (stepId) => {
+    const step = document.getElementById('d' + stepId);
+    return step.querySelector('.wf, .stations, .adv, .stepmono') || step;
+  };
+  const drawWires = () => {
+    const lb = lane.getBoundingClientRect();
+    wiresSvg.setAttribute('viewBox', `0 0 ${lb.width} ${lb.height}`);
+    wiresSvg.querySelectorAll('.wire').forEach(p => p.remove());
+    const rel = (el) => { const r = el.getBoundingClientRect();
+      return { cx: r.left - lb.left + r.width / 2, top: r.top - lb.top, bottom: r.bottom - lb.top }; };
+    const G = 6;
+    // one wire per adjacent pair, from the lower step's content up to the upper's
+    for (let i = 0; i < order.length - 1; i++) {
+      const lower = rel(contentOf(order[i]));
+      const upper = rel(contentOf(order[i + 1]));
+      const p = document.createElementNS(SVGNS, 'path');
+      p.setAttribute('d', wirePath(lower.cx, lower.top - G, upper.cx, upper.bottom + G));
+      p.setAttribute('class', 'wire w' + order[i + 1]);
+      wiresSvg.appendChild(p);
+    }
+  };
+  // elbow from the top build step out to the left margin and up to the tuner
+  const drawWireA = () => {
+    const fb = frameEl.getBoundingClientRect();
+    wireASvg.setAttribute('viewBox', `0 0 ${fb.width} ${fb.height}`);
+    wireASvg.querySelectorAll('.wire').forEach(p => p.remove());
+    const src = contentOf('Reveal').getBoundingClientRect();
+    const tgt = document.getElementById('scopebox').getBoundingClientRect();
+    const lb = lane.getBoundingClientRect();
+    const sx = src.left - fb.left + src.width / 2, sy = src.top - fb.top - 6;
+    const ex = tgt.left - fb.left - 6, ty = tgt.top - fb.top + tgt.height / 2;
+    const mx = (lb.left - fb.left) / 2;
+    const y1 = sy - 14, r = 8;
+    const p = document.createElementNS(SVGNS, 'path');
+    p.setAttribute('d',
+      `M ${sx} ${sy} L ${sx} ${y1 + r} Q ${sx} ${y1} ${sx - r} ${y1} ` +
+      `L ${mx + r} ${y1} Q ${mx} ${y1} ${mx} ${y1 - r} ` +
+      `L ${mx} ${ty + r} Q ${mx} ${ty} ${mx + r} ${ty} L ${ex} ${ty}`);
+    p.setAttribute('class', 'wire');
+    wireASvg.appendChild(p);
+  };
+  // scale the prime headline to fill its width without clipping (like the font demo)
+  const primeEl = document.getElementById('prime');
+  const fitPrime = () => {
+    // the scopebox spans the tuner's content width exactly - size the prime to it
+    const cw = document.getElementById('scopebox').getBoundingClientRect().width;
+    primeEl.style.fontSize = '120px';
+    const w = primeEl.scrollWidth || 1;
+    primeEl.style.fontSize = Math.max(10, 120 * (cw * 0.98) / w) + 'px';
+  };
+  const drawAll = () => { fitPrime(); drawWires(); drawWireA(); };
+  drawAll();
+  document.fonts.ready.then(drawAll);
+  window.addEventListener('resize', drawAll);
+
+  // ---- cascade: a blue wave runs UP the defense stack, lights the prime, loops ----
+  const prime = document.getElementById('prime');
+  const STEP_MS = 360, PULSE_MS = 720, HOLD_MS = 1400, GAP_MS = 600;
+  const timers = [];
+  const clearAll = () => {
+    timers.forEach(clearTimeout); timers.length = 0;
+    order.forEach(s => document.getElementById('d' + s).classList.remove('hl'));
+    wiresSvg.querySelectorAll('.wire.on').forEach(w => w.classList.remove('on'));
+    wireASvg.querySelectorAll('.wire.on').forEach(w => w.classList.remove('on'));
+    prime.classList.remove('blue');
+  };
+  const runCascade = () => {
+    order.forEach((s, i) => {
+      const step = document.getElementById('d' + s);
+      const wires = wiresSvg.querySelectorAll('.w' + s);   // wire INTO this step (from below)
+      timers.push(setTimeout(() => { step.classList.add('hl'); wires.forEach(w => w.classList.add('on')); }, i * STEP_MS));
+      timers.push(setTimeout(() => { step.classList.remove('hl'); wires.forEach(w => w.classList.remove('on')); }, i * STEP_MS + PULSE_MS));
+    });
+    // final beat: the elbow appears and the prime lights up
+    timers.push(setTimeout(() => {
+      prime.classList.add('blue');
+      wireASvg.querySelectorAll('.wire').forEach(w => w.classList.add('on'));
+    }, order.length * STEP_MS));
+    // hold, reset, loop
+    timers.push(setTimeout(() => { clearAll(); timers.push(setTimeout(runCascade, GAP_MS)); },
+      order.length * STEP_MS + HOLD_MS));
+  };
+  runCascade();
+</script>
+</body>
+</html>
