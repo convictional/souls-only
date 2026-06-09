@@ -45,9 +45,19 @@
           border-radius:6px; padding:3px 10px; font:12px/1.3 var(--mono); color:var(--muted);
           text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .page { height:calc(13 * var(--u)); overflow:hidden; display:flex; align-items:center; justify-content:center; padding:0 5%; }
-  .title-wrap { position:relative; cursor:pointer; width:100%; }
-  body.scrubbing, body.scrubbing * { cursor:ew-resize !important; }
+  .title-wrap { position:relative; width:100%; }
   .title { text-align:center; color:var(--fg); }
+  /* the headline auto-scrubs the REVL axis: it rests on the TRUE text (650),
+     then drifts to a decoy on each side (530 left, 810 right) and back, on a
+     loop; the noise between is the morph in transit. */
+  #title { animation:headlineScrub 13s ease-in-out infinite; }
+  @keyframes headlineScrub {
+    0%,10%   { font-variation-settings:"REVL" 650; }   /* the truth */
+    27%,37%  { font-variation-settings:"REVL" 530; }   /* a decoy, to the left */
+    54%,64%  { font-variation-settings:"REVL" 650; }   /* the truth */
+    81%,91%  { font-variation-settings:"REVL" 810; }   /* a decoy, to the right */
+    100%     { font-variation-settings:"REVL" 650; }
+  }
   #t1mark { color:var(--fg); transition:color .4s ease; }
   #t1mark.blue { color:var(--primary); }
   .tline1 { font-size:46px; line-height:1.1; white-space:nowrap; }
@@ -117,15 +127,10 @@
                      92%,100% { transform:translateX(-14px); } }
   @keyframes tileR { 0%,18% { transform:translateX(14px); }  45%,65% { transform:translateX(0); }
                      92%,100% { transform:translateX(14px); } }
-  /* variable-font row: REVL steps through several decoy focal points (the same
-     glyph snaps into DIFFERENT real letters), then rests on the true letter at
-     650; the noise between stops is the morph in transit. */
-  #gRevl { animation:revlReveal 9s ease-in-out infinite; }
-  @keyframes revlReveal { 0%,9%    { font-variation-settings:"REVL" 70; }   /* decoy */
-                          18%,27%  { font-variation-settings:"REVL" 390; }  /* decoy */
-                          36%,45%  { font-variation-settings:"REVL" 810; }  /* decoy */
-                          56%,84%  { font-variation-settings:"REVL" 650; }  /* the true letter */
-                          93%,100% { font-variation-settings:"REVL" 70; } }
+  /* variable-font row: the demo glyph runs the SAME animation as the headline
+     (#headlineScrub, same duration, no delay) so it mirrors the headline's "a"
+     in lockstep -- truth, a decoy each side, and the morph in transit. */
+  #gRevl { animation:headlineScrub 13s ease-in-out infinite; }
 
   #dKbd { padding:calc(.3 * var(--u)) 4% 0; flex-direction:column; align-items:center; }
   .kbdvid { flex:1; min-height:0; aspect-ratio:1.1/1; width:auto; max-width:100%;
@@ -153,7 +158,7 @@
         </div>
       </div>
     </div>
-    <div class="scrubhint">click + drag to scrub &mdash; most spots are decoys; the truth hides at one</div>
+    <div class="scrubhint">one line on a dial: a decoy, the truth, a decoy</div>
     <svg id="wireA" aria-hidden="true"></svg>
 
     <!-- MIDDLE + BOTTOM: the build, bottom -> top -->
@@ -198,7 +203,7 @@
         </div>
       </div>
       <div class="desc-lane">
-        <div class="rstep" id="rRevl"><span>a variable axis (usually for weight or slant) has many focal points: most snap the letters into real but <b>wrong</b> words (decoys) &mdash; the true text hides at one secret spot</span></div>
+        <div class="rstep" id="rRevl"><span>a variable axis (usually for weight or slant) stops on decoy letters, real but <b>wrong</b> words; the truth sits at one</span></div>
         <div class="rstep" id="rTile"><span>each letter you see is actually two glyphs meeting at an invisible seam</span></div>
         <div class="rstep" id="rGsub"><span>each carrier pair ligates into a half-glyph, the same trick that turns ae into &aelig; in some fonts</span></div>
         <div class="rstep" id="rCmap"><span><code>SoulsOnly.ttf</code>&rsquo;s CMAP table maps carriers to blank glyphs</span></div>
@@ -262,19 +267,9 @@
   document.getElementById('gRevl').textContent = lc + rc;     // the rendered "a"
   ['gsL','gsR','tileL','tileR'].forEach(id => setR(document.getElementById(id), 650));
 
-  // headline: press + drag to scrub (starts scattered)
+  // the headline auto-scrubs via the #headlineScrub CSS animation (truth <->
+  // decoy each side, on a loop); frameEl is still used by drawWireA below.
   const frameEl = document.querySelector('.frame');
-  const titleWrap = document.querySelector('.title-wrap');
-  let dragging = false;
-  const applyX = (x) => { const r = frameEl.getBoundingClientRect();
-    setR(title, Math.max(0, Math.min(1000, ((x - r.left) / r.width) * 1000))); };
-  setR(title, 0);
-  const endDrag = () => { dragging = false; document.body.classList.remove('scrubbing'); };
-  titleWrap.addEventListener('pointerdown', (e) => { dragging = true; document.body.classList.add('scrubbing');
-    try { titleWrap.setPointerCapture(e.pointerId); } catch (_) {} applyX(e.clientX); });
-  document.addEventListener('pointermove', (e) => { if (dragging) applyX(e.clientX); });
-  document.addEventListener('pointerup', endDrag);
-  document.addEventListener('pointercancel', endDrag);
 
   // All rows stay visible. When the video hits frame 8, a color wave cascades UP
   // the demo lane (each step's characters turn blue). At the video's end everything

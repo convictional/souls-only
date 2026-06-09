@@ -3,16 +3,13 @@
 **This repository holds the cipher in two media, both driven by the same 0–1000
 reveal dial:** a **font** you read with your eyes and an [**audio**
 sibling](audio/) you decode with your ears. Each is legible to a human and
-illegible to a machine. The font scatters its letters until the dial brings them
-into focus; the audio ships a spoken message scrambled into noise that resolves
+illegible to a machine. The font turns its letters into decoys — real but wrong
+words — except at one hidden point on the dial where the true text appears; the
+audio ships a spoken message scrambled into noise that resolves
 into a voice only at a hidden point on the dial. One cipher, one control — one for
 seeing, one for hearing.
 
 ## The font
-
-<p align="center">
-  <img src="media/demo.gif" width="600" alt="Souls Only demo: the page loads scattered, a scrub brings the text into focus, and a keypress cascades up the rendering pipeline">
-</p>
 
 A font whose **rendered glyphs** spell readable text while the **stored
 character stream** (what copy-paste, HTML/PDF extraction, and scrapers see) is
@@ -22,6 +19,30 @@ emits the noise stream, and only this font renders it back into words.
 
 This is a craft and statement project, not a claim of unbreakable security.
 See Limitations in `font-cipher-brief.md`.
+
+## Try it (interactive demo)
+
+The repo ships an interactive page, [`demo/decoy.html`](demo/decoy.html), where
+you can drive the whole thing yourself:
+
+<p align="center">
+  <img src="media/decoy-page.png" width="760" alt="The interactive decoy demo: a typed message renders as readable text above, while the stored byte stream below is noise; a dial and decoy buttons scrub the REVL axis">
+</p>
+
+Type any message, then turn the **REVL** dial (the slider, or the
+**D1–D6** buttons that jump to decoy focal points). At most settings the line
+reads as a real-but-**wrong** message; the true text appears only at one spot
+the buttons don't mark. The lower pane shows the **stored bytes** — what a
+scraper or LLM sees — which stay noise at every setting. Select and copy the
+rendered text to confirm the copied bytes never contain the real words.
+
+Build the assets and open it locally:
+
+```bash
+./.venv/bin/python -m fontbuild.build_keyboard    # dist/SoulsOnly.ttf + SoulsOnly-VF.ttf
+./.venv/bin/python tools/make_demo_assets.py      # demo/cipher_table.js + demo/SoulsOnly-VF.ttf
+python -m http.server 8753 --directory demo       # then open http://localhost:8753/decoy.html
+```
 
 ## How it works
 
@@ -33,8 +54,10 @@ project decouples them:
   random from a pool of 2-character ASCII codes (homophones). So one character is
   typed as four ASCII symbols, and the same character produces different bytes
   each time.
-- The font maps each ASCII code carrier to a blank glyph in `cmap`, then a GSUB
-  `liga` rule collapses each 2-character code into one opaque half-glyph.
+- The font maps each ASCII code carrier in `cmap` to a glyph carrying a
+  meaningless half-glyph fragment (so stray, un-ligated text renders as noise,
+  not blanks), then a GSUB `liga` rule collapses each 2-character code into one
+  opaque half-glyph.
 - The two half-glyphs tile into the real character. Shared classes reuse one
   canonical left half so the left image is ambiguous: the lowercase bowl
   `a c d e g o q`, the lowercase stem `m n r u`, and the uppercase bowl
@@ -45,9 +68,9 @@ project decouples them:
 Because four ASCII characters collapse into one rendered character, the stored
 byte count and the rendered glyph count deliberately diverge.
 
-Plain letters typed in the font do NOT decode: the Latin letter codepoints are
-deliberately mapped to meaningless half-glyph fragments, so pasting ordinary text
-and applying the font yields noise. Readable words only ever come from the cipher
+Plain letters typed in the font do NOT decode: letters are themselves carrier
+glyphs and carry meaningless half-glyph fragments, so pasting ordinary text and
+applying the font yields noise. Readable words only ever come from the cipher
 stream, which reinforces that the font is the key, not a normal typeface.
 
 ## Install the fonts
@@ -59,10 +82,11 @@ The built fonts are committed in [`dist/`](dist/):
 - [`dist/SoulsOnly.otf`](dist/SoulsOnly.otf) — the same static font with CFF
   (PostScript) outlines, for tools that prefer OTF.
 - [`dist/SoulsOnly-VF.ttf`](dist/SoulsOnly-VF.ttf) — the variable font
-  (family "Souls Only VF") with the `REVL` scatter axis. **Defaults to
-  scattered**: text is legible only at `REVL` = 650 (see "The reveal" below).
-  TTF only: the scatter axis lives in TrueType variation data, which is also
-  the most widely supported variable-font format.
+  (family "Souls Only VF") with the `REVL` decoy axis. **Defaults to noise**;
+  most of the dial shows decoys (real but wrong words) and the true text appears
+  only at one hidden point, `REVL` = 650 (see "The reveal" below). TTF only: the
+  axis lives in TrueType variation data, which is also the most widely supported
+  variable-font format.
 
 Download and double-click to install (Font Book on macOS, right-click →
 Install on Windows), or use `@font-face` on the web. Remember the font only
@@ -81,16 +105,29 @@ so the stream stays four-aligned.
 
 ## The reveal (REVL axis)
 
-Souls Only ships as a variable font with a custom `REVL` axis built from three
-masters:
+<p align="center">
+  <img src="media/decoy-demo.gif" width="300" alt="The REVL dial loops between the true text and a decoy on each side: the same line reads as different real-but-wrong words at the trap settings, and as the truth only at one hidden point">
+</p>
 
-- at `REVL` = 0 (the default, so the safe state is illegible) every glyph is
-  warped out of recognition by a random non-uniform transform plus per-point
-  jitter,
-- at `REVL` = 650 (the middle of the axis) every point interpolates back to its
-  true position and the text assembles,
-- at `REVL` = 1000 the glyphs scatter again into a different distortion, so
-  pushing the control all the way up does not reveal the text either.
+Souls Only ships as a variable font with a custom `REVL` axis. Turning the dial
+does not simply scatter and unscatter the text — it lands on a series of
+**focal points**, and at each one every glyph snaps into a real character. At
+most of them the characters are the **wrong** ones: the line reads as a
+plausible but false lowercase message (a *decoy*), so anything that scrubs the
+axis and runs OCR comes away with a confident lie. Between focal points the
+glyph vertices travel, so the letterforms smear from one into the next.
+
+The true text appears at exactly one focal point. Crucially, **nothing is
+stored at any focal point** — not the decoys and not the truth. Each one
+materializes only by interpolation *between* two flanking garbage masters whose
+random swings cancel at the focal's center. So:
+
+- every master in the file is noise; dumping them reveals neither a decoy nor
+  the real text,
+- the real point is structurally identical to a decoy — you cannot tell which
+  focal is real by inspecting the font, only by knowing its dial value,
+- the distortion is symmetric across the whole axis (no telltale extra churn
+  marking where the secret lives).
 
 The entire decode and reveal mechanism lives in the font (`cmap`, `GSUB`,
 half-glyph tiling, and `fvar`/`gvar`); a page contributes only the single `REVL`
@@ -98,9 +135,12 @@ axis value via one control. The axis is unnamed and there is no legible named
 instance, so the reveal value is not handed to an automated reader for free.
 
 Honest limit (restated from the spec): the `REVL` value is one bounded number,
-so an automated attacker can sweep axis values and OCR the legible frame. This
-layer is the most portable and self-contained reveal, and the weakest against
-automated vision. It is a statement device, scoped as such.
+so an automated attacker can sweep axis values and OCR every focal point. The
+decoys mean that sweep yields several equally-plausible readings with no way to
+rank them — but a reader who knows the dial value, or recognizes the real
+message, still wins. This layer is the most portable and self-contained reveal,
+and the weakest against automated vision. It is a statement device, scoped as
+such.
 
 Known limit (by design): the shared left half is a single compromise image
 reused across a class. The bowl classes share cleanly. The stem class
@@ -160,11 +200,13 @@ See [`audio/README.md`](audio/README.md) to run and build it.
 docs/superpowers/             design specs and implementation plans
 cipher/charset.py             the charset + half-slot model: single source of truth
 cipher/keyboard.py            ASCII carrier-code allocation + encode/decode oracle
+cipher/decoy.py               per-focal substitution mappings (the decoy letters)
 cipher/qwerty.py              US-QWERTY keycode -> character map
 fontbuild/fragments.py        half-glyph slicing (skia-pathops)
+fontbuild/resample.py         uniform outline resampling so any half can morph
 fontbuild/features.py         GSUB liga compilation from a FEA file
 fontbuild/build_keyboard.py   build dist/SoulsOnly.ttf (+ the REVL variable font)
-fontbuild/reveal.py           build the REVL reveal font from three masters
+fontbuild/decoy_reveal.py     build the decoy-focal REVL font (true text not stored)
 tools/make_qmk_table.py       generate the QMK firmware table from cipher/keyboard
 tools/make_demo_assets.py     generate the browser demo table + copy the VF
 tools/make_keys_preview.py    generate dist/keys.html (the REVL slider preview)
