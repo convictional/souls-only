@@ -243,11 +243,14 @@
   // a longer block, so the engine needs a matching block length.
   const ASSET = assetUrl(location.search);
   const BLOCK = assetBlockLen(location.search);
+  // The 3-channel overlap is the default/main method; ?asset=message.wav loads the
+  // legacy ten-station build.
+  const isOverlap = /overlap/.test(ASSET);
 
   // The prime shows the opening words of whichever message this asset carries, so
-  // the listener knows what to tune for. The overlap experiment plays the long
-  // passage; the default ten-station file plays the original short line.
-  const PRIME_TEXT = /overlap/.test(qp.get('asset') || '')
+  // the listener knows what to tune for. The overlap plays the long passage; the
+  // legacy ten-station file plays the original short line.
+  const PRIME_TEXT = isOverlap
     ? 'First, a tiny bit of hidden static is mixed in…'
     : 'This is a souls only audio message.';
   document.getElementById('prime').textContent = '“' + PRIME_TEXT + '”';
@@ -260,17 +263,34 @@
     document.body.appendChild(lab);
   }
 
-  // ---- static visuals: the ten-station strip + the three reference waveforms ----
-  // nine rhyme stations + the message, the message placed among them. only it is
-  // marked on screen; the nine look identical, as a statistics sweep would see them.
-  const STATIONS = ['', '', '', 'msg', '', '', '', '', '', ''];
+  // ---- static visuals: the station strip + the three reference waveforms ----
+  // Overlap: three channels (message + two rhymes), the message marked. Legacy:
+  // nine rhymes + the message among them, all looking alike to a statistics sweep.
+  const STATION_COUNT = isOverlap ? 3 : 10;
+  const MSG_INDEX = isOverlap ? 1 : 3;
   const stationsEl = document.getElementById('stations');
-  STATIONS.forEach((kind) => {
+  for (let i = 0; i < STATION_COUNT; i++) {
+    const isMsg = i === MSG_INDEX;
     const s = document.createElement('div');
-    s.className = 'station' + (kind === 'msg' ? ' msg' : '');
-    s.innerHTML = `<span class="tick"></span><span class="stxt">${kind === 'msg' ? 'msg' : '.'}</span>`;
+    s.className = 'station' + (isMsg ? ' msg' : '');
+    s.innerHTML = `<span class="tick"></span><span class="stxt">${isMsg ? 'msg' : '.'}</span>`;
     stationsEl.appendChild(s);
-  });
+  }
+
+  // Overlap rewrites the build-lane story: there is no adversarial step (the noise
+  // floor masks the message from speech-to-text on its own), and the stations are
+  // layered into one clip rather than concatenated as ten.
+  if (isOverlap) {
+    document.getElementById('dAdv').style.display = 'none';
+    document.getElementById('rAdv').style.display = 'none';
+    document.querySelector('#dStations .steplabel').textContent = 'three channels, layered';
+    document.querySelector('#rStations span').innerHTML =
+      'the message + two nursery rhymes, each scrambled at its own dial value, summed into a single clip the length of one &mdash; the short rhymes loop to fill it';
+    document.querySelector('#rReveal span').innerHTML =
+      'at one dial point a voice rebuilds while the other two stay a wash of noise &mdash; speech-to-text gets only gibberish, but a primed human picks the words out';
+    document.querySelector('#rClean span').innerHTML =
+      'the message is spoken once; this clean recording is <b>never shipped</b>, only its scrambled, layered form';
+  }
 
   // sample a path across the 0..100 x 0..28 viewBox. "voiced" = an amplitude-
   // modulated harmonic stack (looks like speech); "noise" = gaussian-ish fuzz.
@@ -403,7 +423,10 @@
   const wiresSvg = document.getElementById('wires');
   const wireASvg = document.getElementById('wireA');
   const SVGNS = 'http://www.w3.org/2000/svg';
-  const order = ['Clean', 'Scramble', 'Stations', 'Adv', 'Reveal'];   // bottom -> top
+  // bottom -> top; the overlap has no adversarial step
+  const order = isOverlap
+    ? ['Clean', 'Scramble', 'Stations', 'Reveal']
+    : ['Clean', 'Scramble', 'Stations', 'Adv', 'Reveal'];
 
   // elbow path: straight verticals joined by a rounded horizontal jog
   const wirePath = (sx, sy, ex, ey) => {
