@@ -1,14 +1,12 @@
 import { RevealEngine } from './reveal-engine.js'
 import { nextReveal } from './keys.js'
-import { assetUrl, assetBlockLen } from './asset-url.js'
-import { ASSET_RATE } from './constants.js'
+import { assetUrl } from './asset-url.js'
+import { ASSET_RATE, OVERLAP_BLOCK_LEN } from './constants.js'
 
-// Which asset to load: the shipped ten-station file by default, or ?asset=<name>
-// for an alternate (e.g. the overlap experiment, ?asset=overlap-3.wav). The
-// overlap asset packs all stations into one longer block, so it needs a matching
-// block length for the engine to descramble correctly.
+// The shipped asset is the 3-channel overlap: all channels packed into one long
+// block, so the engine descrambles at OVERLAP_BLOCK_LEN.
 const ASSET = assetUrl(location.search)
-const BLOCK = assetBlockLen(location.search)
+const BLOCK = OVERLAP_BLOCK_LEN
 
 const toggle = document.getElementById('toggle')
 const slider = document.getElementById('revl')

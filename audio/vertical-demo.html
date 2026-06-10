@@ -188,15 +188,8 @@
           <span class="steplabel">tuned reveal</span>
           <svg class="wf" id="wfReveal" viewBox="0 0 100 28" preserveAspectRatio="none"><path/></svg>
         </div>
-        <div class="dstep" id="dAdv">
-          <span class="steplabel">adversarial layer</span>
-          <div class="adv">
-            <span class="box">Whisper-tiny</span><span class="arrow">&darr;</span>
-            <span class="wrong">&ldquo;Little Miss Muffet&rdquo;</span>
-          </div>
-        </div>
         <div class="dstep" id="dStations">
-          <span class="steplabel">ten stations, all real speech</span>
+          <span class="steplabel">three channels, layered</span>
           <div class="stations" id="stations"></div>
         </div>
         <div class="dstep" id="dScramble">
@@ -211,11 +204,10 @@
       </div>
 
       <div class="desc-lane">
-        <div class="rstep" id="rReveal"><span>at one hidden dial point, a primed human hears the real words &mdash; the same top-down priming the font uses, made the defense</span></div>
-        <div class="rstep" id="rAdv"><span>a tiny perturbation makes <b>Whisper-tiny</b> transcribe it as <b>&ldquo;Little Miss Muffet&rdquo;</b> &mdash; still clear to a human ear</span></div>
-        <div class="rstep" id="rStations"><span>nine nursery rhymes + the message, all real speech &mdash; a speech-likeness sweep <b>can&rsquo;t rank them</b></span></div>
+        <div class="rstep" id="rReveal"><span>at one dial point a voice rebuilds while the other two stay a wash of noise &mdash; speech-to-text gets only gibberish, but a primed human picks the words out</span></div>
+        <div class="rstep" id="rStations"><span>the message + <b>two nursery-rhyme decoys</b> (Twinkle, Old MacDonald), each scrambled at its own dial value, summed into a single clip the length of one &mdash; the short decoys loop to fill it</span></div>
         <div class="rstep" id="rScramble"><span>an FFT randomizes each bin&rsquo;s <b>phase</b>, not its magnitude; the dial applies <code>&minus;&alpha;</code> to undo it</span></div>
-        <div class="rstep" id="rClean"><span>spoken once; this clean recording is <b>never shipped</b>, only its scrambled form</span></div>
+        <div class="rstep" id="rClean"><span>spoken once; this clean recording is <b>never shipped</b>, only its scrambled, layered form</span></div>
       </div>
     </div>
 
@@ -224,8 +216,8 @@
 <script type="module">
   import { RevealEngine } from '/src/reveal-engine.js'
   import { nextReveal } from '/src/keys.js'
-  import { assetUrl, assetBlockLen } from '/src/asset-url.js'
-  import { ASSET_RATE } from '/src/constants.js'
+  import { assetUrl } from '/src/asset-url.js'
+  import { ASSET_RATE, OVERLAP_BLOCK_LEN } from '/src/constants.js'
 
   // ?h=900 overrides the frame height (stays 9:16); ?guides shows the Loom crop outline
   const qp = new URLSearchParams(location.search);
@@ -238,22 +230,14 @@
   if (qp.get('h')) document.documentElement.style.setProperty('--frameH', parseInt(qp.get('h'), 10) + 'px');
   else { fitFrame(); window.addEventListener('resize', fitFrame); }
 
-  // ?asset=overlap-3.wav loads an alternate asset (e.g. the code-division overlap
-  // experiment); defaults to the shipped ten-station file. The overlap asset uses
-  // a longer block, so the engine needs a matching block length.
+  // The shipped asset is the 3-channel overlap, packed into one long block, so the
+  // engine descrambles at OVERLAP_BLOCK_LEN.
   const ASSET = assetUrl(location.search);
-  const BLOCK = assetBlockLen(location.search);
-  // The 3-channel overlap is the default/main method; ?asset=message.wav loads the
-  // legacy ten-station build.
-  const isOverlap = /overlap/.test(ASSET);
+  const BLOCK = OVERLAP_BLOCK_LEN;
 
-  // The prime shows the opening words of whichever message this asset carries, so
-  // the listener knows what to tune for. The overlap plays the long passage; the
-  // legacy ten-station file plays the original short line.
-  const PRIME_TEXT = isOverlap
-    ? 'First, a tiny bit of hidden static is mixed in…'
-    : 'This is a souls only audio message.';
-  document.getElementById('prime').textContent = '“' + PRIME_TEXT + '”';
+  // The prime shows the message's opening words, so the listener knows what to tune
+  // for (and recognizes it surfacing out of the wash).
+  document.getElementById('prime').textContent = '“First, a tiny bit of hidden static is mixed in…”';
   if (qp.has('guides')) {
     document.body.classList.add('guides');
     const fr = document.querySelector('.frame').getBoundingClientRect();
@@ -263,33 +247,15 @@
     document.body.appendChild(lab);
   }
 
-  // ---- static visuals: the station strip + the three reference waveforms ----
-  // Overlap: three channels (message + two rhymes), the message marked. Legacy:
-  // nine rhymes + the message among them, all looking alike to a statistics sweep.
-  const STATION_COUNT = isOverlap ? 3 : 10;
-  const MSG_INDEX = isOverlap ? 1 : 3;
+  // ---- static visuals: the three-channel strip + the three reference waveforms ----
+  // Three channels (the message + two rhyme decoys), the message marked.
   const stationsEl = document.getElementById('stations');
-  for (let i = 0; i < STATION_COUNT; i++) {
-    const isMsg = i === MSG_INDEX;
+  for (let i = 0; i < 3; i++) {
+    const isMsg = i === 1;
     const s = document.createElement('div');
     s.className = 'station' + (isMsg ? ' msg' : '');
-    s.innerHTML = `<span class="tick"></span><span class="stxt">${isMsg ? 'msg' : '.'}</span>`;
+    s.innerHTML = `<span class="tick"></span><span class="stxt">${isMsg ? 'msg' : 'decoy'}</span>`;
     stationsEl.appendChild(s);
-  }
-
-  // Overlap rewrites the build-lane story: there is no adversarial step (the noise
-  // floor masks the message from speech-to-text on its own), and the stations are
-  // layered into one clip rather than concatenated as ten.
-  if (isOverlap) {
-    document.getElementById('dAdv').style.display = 'none';
-    document.getElementById('rAdv').style.display = 'none';
-    document.querySelector('#dStations .steplabel').textContent = 'three channels, layered';
-    document.querySelector('#rStations span').innerHTML =
-      'the message + two nursery rhymes, each scrambled at its own dial value, summed into a single clip the length of one &mdash; the short rhymes loop to fill it';
-    document.querySelector('#rReveal span').innerHTML =
-      'at one dial point a voice rebuilds while the other two stay a wash of noise &mdash; speech-to-text gets only gibberish, but a primed human picks the words out';
-    document.querySelector('#rClean span').innerHTML =
-      'the message is spoken once; this clean recording is <b>never shipped</b>, only its scrambled, layered form';
   }
 
   // sample a path across the 0..100 x 0..28 viewBox. "voiced" = an amplitude-
@@ -423,10 +389,7 @@
   const wiresSvg = document.getElementById('wires');
   const wireASvg = document.getElementById('wireA');
   const SVGNS = 'http://www.w3.org/2000/svg';
-  // bottom -> top; the overlap has no adversarial step
-  const order = isOverlap
-    ? ['Clean', 'Scramble', 'Stations', 'Reveal']
-    : ['Clean', 'Scramble', 'Stations', 'Adv', 'Reveal'];
+  const order = ['Clean', 'Scramble', 'Stations', 'Reveal'];   // bottom -> top
 
   // elbow path: straight verticals joined by a rounded horizontal jog
   const wirePath = (sx, sy, ex, ey) => {
