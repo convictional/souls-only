@@ -1,76 +1,35 @@
-# Souls Only: a human-readable font and human-hearable audio that is unfriendly to AI
+# Souls Only: a human-readable font and human-hearable audio that is intended for humans, not AI
 
-**This repository holds the cipher in two media, both driven by the same 0 to
-1000 reveal dial:** a **font** you read with your eyes and an [**audio**
-sibling](audio/) you decode with your ears. Each is legible to a human and
-illegible to a machine. The font turns its letters into decoys, real but wrong
-words, except at one hidden point on the dial where the true text appears; the
-audio ships a spoken message scrambled into noise that resolves into a voice
-only at a hidden point on the dial. One cipher, one control: one for seeing, one
-for hearing.
 
-## What this is (and what it isn't)
+## Why and what is this (and what it isn't)
 
-Souls Only is a conceptual project, not a security product. It asks a small
-question: as more of what we read and write is silently intermediated by machines,
-can ordinary technology give two people a reasonable expectation that an AI
-isn't quietly intermediating their communication, and how far can something as
-mundane as a font be bent toward that? What's here is a working artifact, meant
-to be read and argued with rather than trusted as a cipher.
+This project is a heavily vibe coded, conceptual companion to an essay I wrote (without AI assistance, you can check the recording!) called ["Souls Only"](https://philosophyofwork.substack.com/p/souls-only). AI is a tremendously powerful and useful tool and this project shouldn't imply some general anti-AI point of view. However, it explores a few quirky possibilities for creating communication that sighted and hearing humans can perceive that throws typical AI agents perceptual curveballs.
 
-It helps to be clear about the threat model. The aim is not to defeat a
-determined adversary; a person with intent can render the font, photograph the
-screen, sweep the variable axis, and read the result. The aim is the common,
-automated reader: the scraper, the copy-paste, the HTML and PDF text extractors,
-the model that ingests a stored character stream. To all of those the stored
-bytes are noise, and recovering the message takes deliberate rendering plus a
-human looking at the result, which turns "slurp the text" back into "sit down
-and read it."
+It is worth saying plainly that Claude Code wrote most of this: the font build, the audio toolchain, the demos, and much of this README below this section, with me directing it. The irony that a project exploring a way to create human-exclusive communication (sighted and hearing people) was heavily implemented by claude code is not lost on me, and if anything sharpens the point. The AI tools are now good enough to make this kind of thing easy for a person who's never built something similar before. But that is actually the point of this exploration. The distinction between times where AI intermediation is useful and appropriate (helping me, a guy who don't really know font or audio technology prototype an idea), and instances where an author wants their readers/listeners to be other people. AI has tremendous applications, but perhaps there are instances when there is value sought by the writer/speaker and the reader/listener in knowing that AI intermediation is likely not happening. 
 
-There is no secret key, and no cryptography. The whole mechanism is a divergence
-at the rendering layer: the bytes that are stored, copied, and tokenized carry
-no message, while the glyphs painted on screen do. Unreadable here means
-unreadable to whatever reads the bytes, not to whoever holds the font and draws
-it. And because modern vision models read rendered text perfectly well, the
-reveal does not try to hide pixels. It trades on ambiguity instead: turning the
-dial lands on a series of focal points, each of which renders as a real,
-plausible message, and only one of them is the truth. Sweeping the axis yields
-several confident readings with no way to rank them, and the real one sits at a
-dial value held in a person's head and stored nowhere in the file.
+The ultimate way to guarantee no intermediation is to use modern encryption techniques and to ensure your readers/listeners have the key to decode. But it becomes more challenging when an author wants the communication to be easily perceivable by the human public and challenging or cost prohibitive for AI.
 
-The font is the output side; there is an input side too, and it is what makes
-this a channel rather than a museum piece. Flash an off-the-shelf QMK keyboard
-with the Souls Only firmware and every key types the cipher instead of plain
-ASCII, so you write normally and the bytes that leave your machine are already
-noise. Two people can simply talk while everything stored, synced, and scraped
-between them carries nothing; without the keyboard you would hand-encode every
-message, and with it the cipher disappears into ordinary typing. I flashed mine
-for this release by asking Claude Code to do it (see "Flashing the keyboard").
+I believe there will be eventual technologies that support communicating human provenance of work, but it seeems impossible, given the current and assumed rate of AI improvement to create something for human general public consumption and block out AI perception. This may be okay. I fully expect the techniques used in this project to be laughably obsolete soon. 
 
-A hearing sibling lives in [`audio/`](audio/): the same 0 to 1000 reveal,
-scrambled into sound that resolves into a voice at one point on the dial.
-Neither medium is a complete accessibility story on its own; both are parts of
-one piece.
+We generally want to create content that is accessible to as many people as possible, across languages and abilities and accessibility optimizing benefits AI perception of the communication. Accessibility technology, including tools leveraging AI have benefitted the goal of accessibliity. For that reason, I would't recommend leveraging the fonts included here for website content intended for the general public. What attempts to break AI perception, will certainly do similar to accessibility screen reading tools unsighted users rely on so please consider this project more in the conceptual, experimental, creative realm and far from the practical.
 
-It is worth saying plainly that Claude Code wrote most of this: the font build,
-the audio toolchain, the demos, and much of this text, with me directing it.
-That an AI assistant can build the very thing meant to carve out a small space
-it doesn't mediate is not lost on me, and if anything it sharpens the point. The
-tools are now good enough to make this kind of thing easy; the fact that
-reaching for an unmediated channel still feels worthwhile says something about
-the moment we are in.
 
-In spirit it is a relative of the encoded-number fonts some banks use to slow
-scrapers, pushed into a variable-font reveal with decoys and a hidden focal
-point. The novelty is the framing and the decoy dial, not any claim of security.
+Soul signing off,
+Bill
 
-## The font
+---
 
-A font whose **rendered glyphs** spell readable text while the **stored
+
+
+## The fonts
+
+`SoulsOnly.ttf` -  A font whose **rendered glyphs** spell readable text while the **stored
 character stream** (what copy-paste, HTML/PDF extraction, and scrapers see) is
 noise. The font is the decoder, applied only at the rendering layer, and the
-cipher is driven by an ordinary keyboard: you type normal keys, the keyboard
+cipher is driven by an ordinary keyboard with special firmware: you type normal keys, the keyboard
 emits the noise stream, and only this font renders it back into words.
+
+`SoulsOnly-VF.ttf` - Renders unreadable glyphes by default and requires a user to "focus" the font as well as dinstinguish between legible, but non semantic decoys. This is an attempt to combat AI screen shot capture and optical character recognition. Note that anything a human user can do, a sufficiently powerful AI agent can replicate, so this is only throwing curveballs that are mean to be easy for human users to "hit" and harder for AI.
 
 This is a craft and statement project, not a claim of unbreakable security.
 See Limitations in `font-cipher-brief.md`.
@@ -88,7 +47,7 @@ you can drive the whole thing yourself:
   <img src="media/decoy-page.png" width="760" alt="The interactive decoy demo: a typed message renders as readable text above, while the stored byte stream below is noise; a dial and decoy buttons scrub the REVL axis">
 </p>
 
-Type any message, then turn the **REVL** dial (the slider, or the
+Type any message, then turn the dial (the slider, or the
 **D1-D6** buttons that jump to decoy focal points). At most settings the line
 reads as a real-but-**wrong** message; the true text appears only at one spot
 the buttons don't mark. The lower pane shows the **stored bytes** (what a
@@ -109,10 +68,6 @@ A font has two streams people usually conflate: the **character stream** (stored
 bytes) and the **glyph stream** (what is drawn after `cmap` and GSUB run). This
 project decouples them:
 
-- Every printable character is encoded as two halves, and each half is chosen at
-  random from a pool of 2-character ASCII codes (homophones). So one character is
-  typed as four ASCII symbols, and the same character produces different bytes
-  each time.
 - The font maps each ASCII code carrier in `cmap` to a glyph carrying a
   meaningless half-glyph fragment (so stray, un-ligated text renders as noise,
   not blanks), then a GSUB `liga` rule collapses each 2-character code into one
@@ -131,6 +86,54 @@ Plain letters typed in the font do NOT decode: letters are themselves carrier
 glyphs and carry meaningless half-glyph fragments, so pasting ordinary text and
 applying the font yields noise. Readable words only ever come from the cipher
 stream, which reinforces that the font is the key, not a normal typeface.
+
+This is the `SoulsOnly.ttf` font.
+
+## The reveal (REVL axis)
+
+The second font `SoulsOnly-VF.ttf"` is a variable font with a custom `REVL` axis. Turning the dial
+does not simply scatter and unscatter the text; it lands on a series of
+**focal points**, and at each one every glyph snaps into a real character. At
+most of them the characters are the **wrong** ones: the line reads as a
+plausible but false lowercase message (a *decoy*), so anything that scrubs the
+axis and runs OCR comes away with non-semantic garble. Between focal points the
+glyph vertices travel, so the letterforms smear from one into the next.
+
+The true text appears at exactly one focal point. Crucially, **nothing is
+stored at any focal point** within the font file (not the decoys and not the truth). Each one
+materializes only by interpolation *between* two flanking garbage masters whose
+random swings cancel at the focal's center. This is intended to make reverse engineering harder. So:
+
+- every master in the file is noise; dumping them reveals neither a decoy nor
+  the real text,
+- the real point is structurally identical to a decoy: you cannot tell which
+  focal is real by inspecting the font, only by knowing its dial value,
+- the distortion is symmetric across the whole axis (no telltale extra churn
+  marking where the secret lives).
+
+This is also what makes the font harder to reverse-engineer than an ordinary
+variable font. The usual shortcut is to read the masters straight out of the
+file, or to ask the font for a named instance, and recover the design from the
+stored data. Here there is nothing in the data to recover: no master, no named
+instance, and no single stored axis value holds readable text. The readable
+letterforms exist only as transient shapes the renderer interpolates on the fly
+between two garbage masters, and the position of the real one is a number kept
+out of the file entirely. That pushes an attacker off the cheap path of
+inspecting the file and onto the expensive one of driving the renderer across
+the axis and reading pixels, which is the honest limit described next.
+
+The entire decode and reveal mechanism lives in the font (`cmap`, `GSUB`,
+half-glyph tiling, and `fvar`/`gvar`); a page contributes only the single `REVL`
+axis value via one control. The axis is unnamed and there is no legible named
+instance, so the reveal value is not handed to an automated reader for free.
+
+Honest limit (restated from the spec): the `REVL` value is one bounded number,
+so an automated attacker can sweep axis values and OCR every focal point. The
+decoys mean that sweep yields several equally-plausible readings with no way to
+rank them, but a reader who knows the dial value, or recognizes the real
+message, still wins. This layer is the most portable and self-contained reveal,
+and the weakest against automated vision. It is a statement device, scoped as
+such.
 
 ## Install the fonts
 
@@ -186,57 +189,6 @@ in units of four (Backspace removes four, the arrows move four), Space emits one
 space character, and Return emits a real newline plus three invisible pad bytes
 so the stream stays four-aligned.
 
-## The reveal (REVL axis)
-
-Souls Only ships as a variable font with a custom `REVL` axis. Turning the dial
-does not simply scatter and unscatter the text; it lands on a series of
-**focal points**, and at each one every glyph snaps into a real character. At
-most of them the characters are the **wrong** ones: the line reads as a
-plausible but false lowercase message (a *decoy*), so anything that scrubs the
-axis and runs OCR comes away with a confident lie. Between focal points the
-glyph vertices travel, so the letterforms smear from one into the next.
-
-The true text appears at exactly one focal point. Crucially, **nothing is
-stored at any focal point** (not the decoys and not the truth). Each one
-materializes only by interpolation *between* two flanking garbage masters whose
-random swings cancel at the focal's center. So:
-
-- every master in the file is noise; dumping them reveals neither a decoy nor
-  the real text,
-- the real point is structurally identical to a decoy: you cannot tell which
-  focal is real by inspecting the font, only by knowing its dial value,
-- the distortion is symmetric across the whole axis (no telltale extra churn
-  marking where the secret lives).
-
-This is also what makes the font harder to reverse-engineer than an ordinary
-variable font. The usual shortcut is to read the masters straight out of the
-file, or to ask the font for a named instance, and recover the design from the
-stored data. Here there is nothing in the data to recover: no master, no named
-instance, and no single stored axis value holds readable text. The readable
-letterforms exist only as transient shapes the renderer interpolates on the fly
-between two garbage masters, and the position of the real one is a number kept
-out of the file entirely. That pushes an attacker off the cheap path of
-inspecting the file and onto the expensive one of driving the renderer across
-the axis and reading pixels, which is the honest limit described next.
-
-The entire decode and reveal mechanism lives in the font (`cmap`, `GSUB`,
-half-glyph tiling, and `fvar`/`gvar`); a page contributes only the single `REVL`
-axis value via one control. The axis is unnamed and there is no legible named
-instance, so the reveal value is not handed to an automated reader for free.
-
-Honest limit (restated from the spec): the `REVL` value is one bounded number,
-so an automated attacker can sweep axis values and OCR every focal point. The
-decoys mean that sweep yields several equally-plausible readings with no way to
-rank them, but a reader who knows the dial value, or recognizes the real
-message, still wins. This layer is the most portable and self-contained reveal,
-and the weakest against automated vision. It is a statement device, scoped as
-such.
-
-Known limit (by design): the shared left half is a single compromise image
-reused across a class. The bowl classes share cleanly. The stem class
-`m n r u` does not: a stem clipped from a real letter is not a pure bar, so those
-letters carry a faint hairline seam. The deferred fix is a hand-drawn synthetic
-shared-stem glyph (see the TODO in `fontbuild/fragments.py`).
 
 ## Layout
 
