@@ -47,10 +47,10 @@ between them carries nothing; without the keyboard you would hand-encode every
 message, and with it the cipher disappears into ordinary typing. I flashed mine
 for this release by asking Claude Code to do it (see "Flashing the keyboard").
 
-A hearing sibling lives in [`audio/`](audio/): the
-same 0 to 1000 reveal, scrambled into sound that resolves into a voice at one
-point on the dial. Neither medium is a complete accessibility story on its own;
-both are parts of one piece.
+A hearing sibling lives in [`audio/`](audio/): the same 0 to 1000 reveal,
+scrambled into sound that resolves into a voice at one point on the dial.
+Neither medium is a complete accessibility story on its own; both are parts of
+one piece.
 
 It is worth saying plainly that Claude Code wrote most of this: the font build,
 the audio toolchain, the demos, and much of this text, with me directing it.
