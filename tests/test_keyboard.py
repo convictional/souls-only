@@ -36,10 +36,15 @@ def test_codes_are_two_chars_from_the_alphabet():
             assert all(c in kb.CODE_ALPHABET for c in code)
 
 
-def test_carrier_alphabet_is_40_safe_chars():
-    assert len(kb.CODE_ALPHABET) == 40
+def test_carrier_alphabet_is_92_safe_chars():
+    # Letters, digits, and symbols all carry code material now.
+    from cipher import charset
+    assert len(kb.CODE_ALPHABET) == 92
     assert '"' not in kb.CODE_ALPHABET
     assert "\\" not in kb.CODE_ALPHABET
+    assert all(c in kb.CODE_ALPHABET for c in charset.LOWER)
+    assert all(c in kb.CODE_ALPHABET for c in charset.UPPER)
+    assert all(c in kb.CODE_ALPHABET for c in charset.DIGITS)
 
 
 def test_code_space_covers_all_slots():
@@ -67,11 +72,14 @@ def test_roundtrip_with_spaces_and_newlines():
     assert kb.decode(enc) == text
 
 
-def test_space_is_encoded_as_four_chars():
+def test_space_stays_a_literal_space():
+    # Space is NOT ciphered -- it passes through as a real space so the stream
+    # keeps word boundaries and the font wraps/selects normally anywhere.
     import random
-    enc = kb.encode(" ", rng=random.Random(3))
-    assert len(enc) == 2 * kb.CODE_LEN
-    assert " " not in enc
+    assert kb.encode(" ", rng=random.Random(3)) == " "
+    enc = kb.encode("a b", rng=random.Random(3))
+    assert enc.count(" ") == 1
+    assert kb.decode(enc) == "a b"
 
 
 def test_newline_is_real_newline_plus_three_pads():
@@ -90,9 +98,14 @@ def test_homophones_vary_across_occurrences():
     assert len(seen) > 1  # repeated letter looks different in the stream
 
 
-def test_no_letter_leaks_into_stream():
-    enc = kb.encode("the quick brown fox", rng=random.Random(3))
-    assert not any(c.isalpha() for c in enc)
+def test_stream_mixes_letters_digits_and_symbols():
+    # The encoded stream draws on the whole carrier alphabet, so it contains
+    # letters as well as digits and symbols (and reads as noise, not words).
+    enc = kb.encode("the quick brown fox jumps over the lazy dog",
+                    rng=random.Random(3))
+    assert any(c.isalpha() for c in enc)
+    assert any(c.isdigit() for c in enc)
+    assert any(not c.isalnum() for c in enc)
 
 
 def test_shaping_full_charset_no_notdef(built_keys_path):
@@ -152,32 +165,63 @@ def test_keyboard_reveal_axis(built_keys_vf_path):
 
 
 def test_keyboard_reveal_aligned_restores(built_keys_vf_path, built_keys_path):
-    # Readable in the middle of the axis (REVL=650), not the top.
-    from fontbuild.reveal import _ALIGNED_AT
+    # Readable at the secret interpolation point (REVL=650), not the top. The
+    # restored shape is the RESAMPLED true outline (uniform point structure),
+    # so compare against the builder's expectation, not the raw static glyph.
+    from fontbuild import decoy_reveal as dr
     aligned = TTFont(built_keys_path)
     inst = instantiateVariableFont(TTFont(built_keys_vf_path),
-                                   {"REVL": _ALIGNED_AT}, inplace=False)
+                                   {"REVL": dr.SECRET_REVL}, inplace=False)
 
-    def bounds(font, g):
-        pen = BoundsPen(font.getGlyphSet())
-        font.getGlyphSet()[g].draw(pen)
+    def bounds(glyphset, g):
+        pen = BoundsPen(glyphset)
+        glyphset[g].draw(pen)
         return pen.bounds
 
-    # a shared left half and a right half should restore to their aligned shape
     sample_glyph = kb.half_glyph_name(kb.half_slots()[0])
-    a = bounds(aligned, sample_glyph)
-    b = bounds(inst, sample_glyph)
-    assert a and b and all(abs(x - y) <= 2 for x, y in zip(a, b))
+    expected = dr.expected_true_glyphs(aligned)[sample_glyph]
+    got = bounds(inst.getGlyphSet(), sample_glyph)
+    want = (expected.xMin, expected.yMin, expected.xMax, expected.yMax)
+    assert got and all(abs(x - y) <= 2 for x, y in zip(want, got))
 
 
-def test_plain_letters_render_as_garbled_fragments(built_keys_path):
-    # Normally-typed letters must NOT decode: A-Z / a-z map to opaque half-glyph
-    # fragments (h_<n>), not readable letter glyphs, so only the cipher stream
-    # (carrier codes -> ligatures) reads as words.
+def test_plain_letters_render_as_inked_carriers(built_keys_path):
+    # Normally-typed letters must NOT decode: A-Z / a-z map to their carrier
+    # glyphs (kc_<hex>), which carry meaningless fragment ink, so stray text
+    # renders as noise (not blank, not readable letters). Only the cipher
+    # stream (carrier codes -> ligatures) reads as words.
     from cipher import charset
     font = TTFont(built_keys_path)
+    glyf = font["glyf"]
     best = font.getBestCmap()
     for ch in charset.LOWER + charset.UPPER:
         g = best.get(ord(ch))
         assert g is not None, ch
-        assert re.fullmatch(r"h_\d+", g), f"{ch!r} -> {g!r} (should be a half-glyph)"
+        assert re.fullmatch(r"kc_[0-9A-F]{4}", g), \
+            f"{ch!r} -> {g!r} (should be a carrier glyph)"
+        assert glyf[g].numberOfContours > 0, f"{ch!r} carrier is blank"
+
+
+def test_every_carrier_has_ink_except_pad(built_keys_path):
+    from cipher import charset
+    font = TTFont(built_keys_path)
+    glyf = font["glyf"]
+    for ch in kb.CODE_ALPHABET:
+        assert glyf[kb.carrier_glyph_name(ch)].numberOfContours > 0, repr(ch)
+    pad = kb.carrier_glyph_name(charset.PAD)
+    assert glyf[pad].numberOfContours == 0  # pad stays an invisible blank
+
+
+def test_encoded_stream_fully_ligates(built_keys_path):
+    # Every 2-char code must collapse into exactly one half-glyph: each ciphered
+    # character -> 2 half-glyphs, while a literal space stays one space glyph.
+    # A stray carrier that fails to ligate would leak extra glyphs.
+    text = "The Quick Brown Fox 99! @#$ (a) = ok?"
+    enc = kb.encode(text, rng=random.Random(11))
+    shaped = _shape(built_keys_path, enc)
+    n_spaces = text.count(" ")
+    n_ciphered = len(text) - n_spaces
+    assert len(shaped) == 2 * n_ciphered + n_spaces
+    space_glyph = TTFont(built_keys_path).getBestCmap()[ord(" ")]
+    half_or_space = [g for g in shaped if re.fullmatch(r"h_\d+", g) or g == space_glyph]
+    assert len(half_or_space) == len(shaped)

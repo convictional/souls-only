@@ -7,7 +7,8 @@ A refactor that reuses the existing engine:
   * cipher.keyboard      -> the ASCII code allocation and slot routing over
     the full printable charset (letters, digits, symbols, space).
   * fontbuild.features.compile_features -> FEA compilation.
-  * fontbuild.reveal.build_reveal -> the REVL variable axis, applied on top.
+  * fontbuild.decoy_reveal.build_decoy_reveal -> the REVL variable axis with
+    decoy focal points and the hidden true text, applied on top.
 
 Every character becomes two half-glyphs addressed by 2-char ASCII codes; a
 GSUB ligature collapses each code into its half-glyph; the halves tile into
@@ -19,6 +20,7 @@ from __future__ import annotations
 
 import os
 
+from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib import TTFont
 from fontTools.ttLib.tables._g_l_y_f import Glyph
 
@@ -32,9 +34,8 @@ from fontbuild.fragments import (
     own_join,
     pad_glyph,
     right_half_glyph,
-    space_half_glyphs,
 )
-from fontbuild.reveal import build_reveal
+from fontbuild.decoy_reveal import build_decoy_reveal
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BASE_FONT = os.path.join(ROOT, "base", "Jost-Regular.ttf")
@@ -64,21 +65,41 @@ def _add_blank(font: TTFont, name: str) -> None:
     font["hmtx"][name] = (0, 0)
 
 
+def _fragment_source(font: TTFont, ch: str) -> str:
+    """Deterministic inked half-glyph to clone as carrier ink for `ch`."""
+    half_names = [charset.half_glyph_name(s) for s in charset.half_slots()]
+    glyf = font["glyf"]
+    n = len(half_names)
+    i = (ord(ch) * 31 + 7) % n  # spread across fragments
+    while glyf[half_names[i]].numberOfContours <= 0:  # skip blanks (space)
+        i = (i + 1) % n
+    return half_names[i]
+
+
+def _add_inked_carrier(font: TTFont, name: str, source: str) -> None:
+    """Install a carrier glyph carrying a copy of `source`'s fragment ink, so
+    stray (un-ligated) carrier characters render as cipher noise, not blanks."""
+    glyf = font["glyf"]
+    if name in glyf:
+        return
+    pen = TTGlyphPen(font.getGlyphSet())
+    font.getGlyphSet()[source].draw(pen)
+    _install(font, name, pen.glyph(), font["hmtx"][source][0])
+
+
 def _add_half_glyphs(font: TTFont) -> None:
-    """Install one glyph per half-slot over the full charset, reusing the slicer.
+    """Install one glyph per half-slot over the charset, reusing the slicer.
 
     Shared classes (lowercase bowl/stem, uppercase bowl) install one left glyph
-    from the canonical character; everything else uses its own halves. Space gets
-    blank halves that tile to the space width.
+    from the canonical character; everything else uses its own halves. Space is
+    not ciphered, so it has no half-glyphs -- it stays the font's own space.
     """
     done: set[str] = set()
     for ch in charset.CHARSET:
         ls = charset.left_slot(ch)
         if ls not in done:
             done.add(ls)
-            if ls == "SP_L":
-                (glyph, adv), _ = space_half_glyphs(font)
-            elif ls.startswith("cls_"):
+            if ls.startswith("cls_"):
                 cls = ls[len("cls_"):]
                 canon = charset.CANONICAL[cls]
                 glyph, adv = left_half_glyph(font, canon, _char_join(font, canon))
@@ -88,16 +109,14 @@ def _add_half_glyphs(font: TTFont) -> None:
         rs = charset.right_slot(ch)
         if rs not in done:
             done.add(rs)
-            if rs == "SP_R":
-                _, (glyph, adv) = space_half_glyphs(font)
-            else:  # "R_<ch>"
-                glyph, adv = right_half_glyph(font, ch, _char_join(font, ch))
+            glyph, adv = right_half_glyph(font, ch, _char_join(font, ch))
             _install(font, charset.half_glyph_name(rs), glyph, adv)
 
 
 def _add_carriers_and_cmap(font: TTFont) -> None:
     for ch in kb.CODE_ALPHABET:
-        _add_blank(font, kb.carrier_glyph_name(ch))
+        _add_inked_carrier(font, kb.carrier_glyph_name(ch),
+                           _fragment_source(font, ch))
     pg, padv = pad_glyph()
     _install(font, kb.carrier_glyph_name(charset.PAD), pg, padv)
     font.setGlyphOrder(list(font["glyf"].glyphOrder))
@@ -105,23 +124,6 @@ def _add_carriers_and_cmap(font: TTFont) -> None:
         for ch in kb.CODE_ALPHABET:
             sub.cmap[ord(ch)] = kb.carrier_glyph_name(ch)
         sub.cmap[ord(charset.PAD)] = kb.carrier_glyph_name(charset.PAD)
-
-
-def _garble_letters(font: TTFont) -> None:
-    """Make normally-typed Latin letters render as meaningless half-glyph
-    fragments, so the font NEVER decodes plain text to readable words. Only the
-    cipher stream (carrier codes -> GSUB ligatures -> tiled halves) reads.
-
-    The keyboard emits carrier codes, never raw A-Z, so remapping the letter
-    codepoints does not affect decoding. Each letter is sent to a deterministic
-    half-glyph so plain text looks like the cipher's own noise.
-    """
-    half_names = [charset.half_glyph_name(s) for s in charset.half_slots()]
-    n = len(half_names)
-    for sub in [t for t in font["cmap"].tables if t.isUnicode()]:
-        for ch in charset.LOWER + charset.UPPER:
-            cp = ord(ch)
-            sub.cmap[cp] = half_names[(cp * 31 + 7) % n]  # spread across fragments
 
 
 def _generate_fea() -> str:
@@ -150,8 +152,9 @@ def _set_names(font: TTFont) -> None:
 def build() -> None:
     font = TTFont(BASE_FONT)
     _add_half_glyphs(font)
+    # Letters are carriers now, and carriers wear fragment ink, so plain typed
+    # text renders as cipher noise; only the code stream ligates into words.
     _add_carriers_and_cmap(font)
-    _garble_letters(font)  # plain Latin letters render as noise; only the cipher reads
 
     os.makedirs(os.path.dirname(OUT_FEA), exist_ok=True)
     with open(OUT_FEA, "w") as fh:
@@ -169,7 +172,7 @@ def build() -> None:
 
 def build_with_reveal() -> None:
     build()
-    build_reveal(aligned_path=OUT_FONT, out_vf=OUT_VF)  # reused REVL builder
+    build_decoy_reveal(aligned_path=OUT_FONT, out_vf=OUT_VF)
 
 
 if __name__ == "__main__":

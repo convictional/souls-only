@@ -19,8 +19,10 @@ def test_js_has_full_charset_and_pad_and_encoder():
     js = _generate()
     left = json.loads(re.search(r"const KB_LEFT = (\{.*?\});", js, re.S).group(1))
     right = json.loads(re.search(r"const KB_RIGHT = (\{.*?\});", js, re.S).group(1))
-    for ch in charset.PRINTABLE + " ":
+    for ch in charset.PRINTABLE:
         assert ch in left and ch in right
+    # Space is not ciphered, so it carries no codes -- the page emits it as-is.
+    assert " " not in left and " " not in right
     assert "function cipherEncodeChar" in js
     assert "const KB_PAD" in js
 
@@ -30,4 +32,3 @@ def test_js_pools_match_cipher():
     js = _generate()
     left = json.loads(re.search(r"const KB_LEFT = (\{.*?\});", js, re.S).group(1))
     assert left["A"] == kb.left_codes("A")
-    assert left[" "] == kb.left_codes(" ")

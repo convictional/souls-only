@@ -23,10 +23,12 @@ import random
 
 from cipher import charset
 
-# Carrier alphabet: the 10 digits plus the ASCII symbols EXCEPT " and \ (those
-# would need escaping in the generated C and JS; \ is reserved as the pad char).
-# 40 characters -> 1600 two-char codes, covering ~178 slots x HOMOPHONES.
-CODE_ALPHABET = charset.DIGITS + "".join(
+# Carrier alphabet: letters, digits, and the ASCII symbols EXCEPT " and \
+# (those would need escaping in the generated C and JS; \ is reserved as the
+# pad char). 92 characters -> 8464 two-char codes, so the encoded stream mixes
+# all three character families and covers ~178 slots x HOMOPHONES many times
+# over.
+CODE_ALPHABET = charset.LOWER + charset.UPPER + charset.DIGITS + "".join(
     c for c in charset.SYMBOLS if c not in ('"', "\\")
 )
 CODE_LEN = 2
@@ -74,9 +76,10 @@ def carrier_glyph_name(ch: str) -> str:
 
 
 def encode(text: str, rng: random.Random | None = None) -> str:
-    """Plaintext -> stream. Each printable char and space -> random left+right
-    codes (4 carrier chars). Newline -> a real newline plus 3 pad chars. Other
-    characters (tab, non-ASCII) pass through unchanged."""
+    """Plaintext -> stream. Each printable non-space char -> random left+right
+    codes (4 carrier chars). Newline -> a real newline plus 3 pad chars. Space
+    stays a literal space, and other characters (tab, non-ASCII) pass through
+    unchanged, so word boundaries survive into the stream."""
     if rng is None:
         rng = random.Random()
     out: list[str] = []

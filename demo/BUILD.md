@@ -22,11 +22,19 @@ whole characters: Backspace deletes one character (4 chars), Left/Right arrows
 move by one character (4 chars), Space is a 4-char code, and Return is a real
 newline plus 3 zero-width pad characters.
 
-The **REVL** variable axis controls readability: text is fully readable at
-**REVL = 650** (the midpoint of the axis); dragging toward 0 or toward 1000
-distorts the glyphs, so a sweep to max does not reveal the text.
-`cipher/keyboard.py` is the single source of truth; it generates the font's
-GSUB, the QMK table, and the browser demo table, so they cannot drift.
+The **REVL** variable axis controls readability. The shipped axis is the
+**decoy-focal** build (`fontbuild/decoy_reveal.py`): the default 0 is scatter,
+1000 is a different scatter, and between them sit several **decoy focal points**
+(`fontbuild.decoy_reveal.DECOY_PLATEAUS`) where every glyph snaps into a real
+but WRONG character, so a scrubber or OCR pass reads confident text that decodes
+to nothing. The true text is **not stored as a master**: it materializes only at
+the secret interpolation point **REVL = 650**, between two flanking garbage
+masters (an uneven ratio, so no gvar peak marks it and averaging the flanks does
+not reconstruct it). All half-glyphs are resampled to a uniform point structure
+so any letterform can morph into any other; scrubbing between focals smears the
+vertices fluidly. `cipher/keyboard.py` is the single source of truth; it
+generates the font's GSUB, the QMK table, and the browser demo table, so they
+cannot drift.
 
 ---
 
@@ -52,6 +60,10 @@ Run from the repo root.
    ```
    open demo/index.html
    ```
+
+   For the **decoy-focal** axis (below), open `demo/decoy.html` instead. Both
+   pages read the same generated `demo/cipher_table.js` and `demo/SoulsOnly-VF.ttf`
+   from step 2, so no extra build step is needed.
 
 4. Smoke test WITHOUT the keyboard:
    - Leave **"Simulate cipher keyboard"** ticked and just type normally. The page

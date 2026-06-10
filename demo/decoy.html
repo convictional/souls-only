@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Souls Only - decoy focal points test page</title>
+<style>
+  /* @font-face is injected by JS with a cache-busting query so a rebuilt font
+     is never shadowed by a stale cached copy (the code->glyph mapping changes
+     between builds, so a stale font + fresh table garbles everything). */
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; min-height: 100vh; background: #0e0f13; color: #e8e8ea;
+    font-family: -apple-system, system-ui, sans-serif;
+    display: flex; flex-direction: column; gap: 1.1rem;
+    padding: 2.2rem clamp(1rem, 5vw, 4rem);
+  }
+  h1 { font-size: 1.35rem; font-weight: 600; margin: 0; }
+  p.sub { margin: 0; color: #9aa0aa; max-width: 70ch; line-height: 1.5; }
+  .pane { background: #16181f; border: 1px solid #262a35; border-radius: 12px; padding: 1rem 1.25rem; }
+  .label { font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; color: #7c828d; margin-bottom: .6rem; }
+  .label b { color: #c7ccd6; }
+
+  #readable {
+    font-family: "Souls Only VF", serif;
+    font-variant-ligatures: common-ligatures;
+    font-feature-settings: "liga" 1;
+    font-variation-settings: "REVL" 0;
+    font-size: 2.3rem; line-height: 1.6; min-height: 5.5rem;
+    white-space: pre-wrap; word-break: break-word;
+    user-select: text;
+  }
+  #raw {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 1rem; line-height: 1.5; color: #ff8585;
+    white-space: pre-wrap; word-break: break-all;
+  }
+  .controls { display: flex; gap: .9rem; flex-wrap: wrap; align-items: center; }
+  .scrub { display: flex; gap: .7rem; align-items: center; flex: 1 1 420px; }
+  input[type=range] { flex: 1; accent-color: #5b7bff; }
+  .v { font-family: ui-monospace, monospace; color: #cfd4dd; min-width: 5.5ch; text-align: right; }
+  button {
+    background: #2a2f3c; color: #e8e8ea; border: 1px solid #3a4150;
+    border-radius: 8px; padding: .42rem .8rem; font-size: .88rem; cursor: pointer;
+  }
+  button:hover { background: #333a49; }
+  button.active { border-color: #5b7bff; color: #aebcff; }
+  input[type=text], input[type=number], textarea {
+    background: #11131a; color: #e8e8ea; border: 1px solid #3a4150;
+    border-radius: 8px; padding: .45rem .6rem; font-size: .95rem;
+    font-family: -apple-system, system-ui, sans-serif;
+  }
+  #msg { flex: 1 1 100%; width: 100%; min-height: 5.5rem; resize: vertical;
+         line-height: 1.5; box-sizing: border-box; }
+  #jump { width: 6.5ch; }
+  .hint { color: #6e7480; font-size: .82rem; }
+</style>
+</head>
+<body>
+  <div>
+    <h1>Souls Only &mdash; decoy focal points</h1>
+    <p class="sub">
+      Type anything below, then <b>move the slider</b> to turn the dial (arrow
+      keys nudge by 1). Most of the dial is noise; at a handful of exact spots
+      the words snap into focus. The buttons <b>D1&ndash;D6</b> jump to the trap
+      spots, where the words look real but say the wrong thing. The true words
+      appear at one more spot that no button marks and that is written down
+      nowhere &mdash; you have to know it. Every spot looks the same from the
+      outside: none of them, not even the real one, is stored in the file. Try
+      selecting and copying the big text &mdash; the copied bytes never contain
+      the real words.
+    </p>
+  </div>
+
+  <div class="controls">
+    <textarea id="msg" spellcheck="false">This whole sentence is written in a trick font. Every letter is split down the middle, and your computer never stores the real words, only a stream of scrambled codes. As you drag the dial, the two halves of each letter twist and swap partners. At most settings they lock into real letters that spell the wrong thing, so anything that scans or copies this page comes away with a confident lie. The real words appear at just one exact setting, a spot written down nowhere in the font itself. Miss it, and you read nonsense that still looks like language.</textarea>
+    <span class="hint">plaintext &rarr; re-encoded on every edit</span>
+  </div>
+
+  <div class="controls">
+    <div class="scrub">
+      <input id="revl" type="range" min="0" max="1000" step="0.5" value="0"
+             list="focals">
+      <datalist id="focals"></datalist>
+      <span class="v" id="revlv">0</span>
+    </div>
+    <span id="stops"></span>
+    <input id="jump" type="number" min="0" max="1000" step="0.5"
+           placeholder="&#10022;">
+    <span class="hint">type a position and press Enter</span>
+  </div>
+
+  <div class="pane">
+    <div class="label">What renders (Souls&nbsp;Only&nbsp;VF, ligatures on)</div>
+    <div id="readable"></div>
+  </div>
+  <div class="pane">
+    <div class="label">What the <b>computer</b> stores / an LLM scrapes</div>
+    <div id="raw"></div>
+  </div>
+
+<script>
+// Load the font and the cipher table together, each cache-busted, so a rebuild
+// can never pair a fresh font with a stale table (which garbles every glyph).
+const V = Date.now();
+const css = document.createElement("style");
+css.textContent =
+  '@font-face{font-family:"Souls Only VF";src:url("./SoulsOnly-VF.ttf?t=' +
+  V + '") format("truetype");}';
+document.head.appendChild(css);
+
+const tbl = document.createElement("script");
+tbl.src = "./cipher_table.js?t=" + V;
+tbl.onload = () => document.fonts.ready.then(init);
+document.head.appendChild(tbl);
+
+function init() {
+  // Keep in sync with fontbuild/decoy_reveal.py (DECOY_CENTERS). Each is a
+  // sweet spot, not a plateau -- nothing is stored, so the decoy is sharp.
+  const DECOY_CENTERS = [70, 230, 390, 530, 810, 940];
+
+  const msg = document.getElementById("msg");
+  const readable = document.getElementById("readable");
+  const raw = document.getElementById("raw");
+  const revl = document.getElementById("revl");
+  const revlv = document.getElementById("revlv");
+  const stops = document.getElementById("stops");
+  const jump = document.getElementById("jump");
+  const focals = document.getElementById("focals");
+
+  function encodeMessage() {
+    let out = "";
+    for (const ch of msg.value) {
+      const code = cipherEncodeChar(ch);
+      out += code === null ? ch : code;
+    }
+    readable.textContent = out;
+    raw.textContent = out;
+  }
+
+  function setRevl(v) {
+    v = Math.max(0, Math.min(1000, v));
+    revl.value = v;
+    revlv.textContent = (+v).toFixed(1).replace(/\.0$/, "");
+    readable.style.fontVariationSettings = '"REVL" ' + v;
+    for (const b of stops.querySelectorAll("button")) {
+      const center = Number(b.dataset.center);
+      b.classList.toggle("active", Math.abs(v - center) < 6);
+    }
+  }
+
+  // Decoy stop buttons + slider tick marks. The real point gets neither -- it
+  // is just another sweet spot, marked nowhere.
+  DECOY_CENTERS.forEach((center, i) => {
+    const b = document.createElement("button");
+    b.textContent = "D" + (i + 1);
+    b.dataset.center = center;
+    b.title = "decoy at " + center;
+    b.addEventListener("click", () => setRevl(center));
+    stops.appendChild(b);
+    const tick = document.createElement("option");
+    tick.value = center;
+    focals.appendChild(tick);
+  });
+
+  revl.addEventListener("input", () => setRevl(+revl.value));
+  jump.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && jump.value !== "") setRevl(+jump.value);
+  });
+  msg.addEventListener("input", encodeMessage);
+
+  // The rendered text is selectable (try selecting it at a decoy vs at 650 to
+  // see that the copied bytes never contain the true words). Scrub with the
+  // slider / focal buttons, not by dragging over the text.
+
+  encodeMessage();
+  setRevl(DECOY_CENTERS[0]);  // open on a decoy (0 is now a garbage end)
+}
+</script>
+</body>
+</html>
