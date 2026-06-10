@@ -12,7 +12,7 @@ for hearing.
 ## What this is (and what it isn't)
 
 Souls Only is a conceptual project, not a security product. It asks a small
-question: as more of what we read and write is silently mediated by machines,
+question: as more of what we read and write is silently intermediated by machines,
 can ordinary technology give two people a reasonable expectation that an AI
 isn't quietly intermediating their communication, and how far can something as
 mundane as a font be bent toward that? What's here is a working artifact, meant
@@ -174,6 +174,17 @@ random swings cancel at the focal's center. So:
   focal is real by inspecting the font, only by knowing its dial value,
 - the distortion is symmetric across the whole axis (no telltale extra churn
   marking where the secret lives).
+
+This is also what makes the font harder to reverse-engineer than an ordinary
+variable font. The usual shortcut is to read the masters straight out of the
+file, or to ask the font for a named instance, and recover the design from the
+stored data. Here there is nothing in the data to recover: no master, no named
+instance, and no single stored axis value holds readable text. The readable
+letterforms exist only as transient shapes the renderer interpolates on the fly
+between two garbage masters, and the position of the real one is a number kept
+out of the file entirely. That pushes an attacker off the cheap path of
+inspecting the file and onto the expensive one of driving the renderer across
+the axis and reading pixels, which is the honest limit described next.
 
 The entire decode and reveal mechanism lives in the font (`cmap`, `GSUB`,
 half-glyph tiling, and `fvar`/`gvar`); a page contributes only the single `REVL`
