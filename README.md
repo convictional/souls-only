@@ -1,5 +1,6 @@
 # Souls Only: a human-readable font and human-hearable audio that is intended for humans, not AI
 
+Can one create a written or spoken communication that is easily accessible by the general public, but not accessible by AI? The answer is most likely certainly not but this project is my quirky attempt at it.
 
 ## Why and what is this (and what it isn't)
 
