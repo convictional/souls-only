@@ -243,6 +243,14 @@
   // a longer block, so the engine needs a matching block length.
   const ASSET = assetUrl(location.search);
   const BLOCK = assetBlockLen(location.search);
+
+  // The prime shows the opening words of whichever message this asset carries, so
+  // the listener knows what to tune for. The overlap experiment plays the long
+  // passage; the default ten-station file plays the original short line.
+  const PRIME_TEXT = /overlap/.test(qp.get('asset') || '')
+    ? 'First, a tiny bit of hidden static is mixed in…'
+    : 'This is a souls only audio message.';
+  document.getElementById('prime').textContent = '“' + PRIME_TEXT + '”';
   if (qp.has('guides')) {
     document.body.classList.add('guides');
     const fr = document.querySelector('.frame').getBoundingClientRect();
