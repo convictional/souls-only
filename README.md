@@ -38,7 +38,16 @@ plausible message, and only one of them is the truth. Sweeping the axis yields
 several confident readings with no way to rank them, and the real one sits at a
 dial value held in a person's head and stored nowhere in the file.
 
-The font is only half of it. A hearing sibling lives in [`audio/`](audio/): the
+The font is the output side; there is an input side too, and it is what makes
+this a channel rather than a museum piece. Flash an off-the-shelf QMK keyboard
+with the Souls Only firmware and every key types the cipher instead of plain
+ASCII, so you write normally and the bytes that leave your machine are already
+noise. Two people can simply talk while everything stored, synced, and scraped
+between them carries nothing; without the keyboard you would hand-encode every
+message, and with it the cipher disappears into ordinary typing. I flashed mine
+for this release by asking Claude Code to do it (see "Flashing the keyboard").
+
+A hearing sibling lives in [`audio/`](audio/): the
 same 0 to 1000 reveal, scrambled into sound that resolves into a voice at one
 point on the dial. Neither medium is a complete accessibility story on its own;
 both are parts of one piece.
@@ -139,6 +148,24 @@ Install on Windows), or use `@font-face` on the web. Remember the font only
 decodes the **cipher stream**; ordinary text rendered in Souls Only is noise
 by design. Generate a stream with the encoder below or the cipher keyboard
 firmware. The fonts are licensed under the OFL 1.1 (see Licensing).
+
+## Flashing the keyboard
+
+The keyboard half runs on any QMK/VIA board (this build targets a Keychron V1
+Max). Its firmware is generated from the same source as the font, so the codes
+can never drift: `tools/make_qmk_table.py` writes `demo/qmk/cipher_table.h`,
+which drops into a QMK keymap next to `demo/qmk/keymap_cipher.c`. Once flashed,
+**Right Ctrl** toggles cipher mode on and off; off, it is an ordinary keyboard,
+and space, Enter, Backspace, and the arrows all behave normally.
+
+The full hardware runbook (toolchain, keymap wiring, entering DFU, recovery) is
+in [`demo/BUILD.md`](demo/BUILD.md). It is genuinely fiddly the first time, so
+the easiest path is to **let Claude Code do it**: open this repo in Claude Code,
+plug the board in, and ask it to flash the cipher firmware. That is exactly how
+this release was flashed. Claude regenerated the table, compiled against the
+Keychron QMK fork, waited for the board in DFU, and ran `dfu-util` end to end.
+Reflash whenever the cipher changes, since a board flashed for an older build
+emits codes the current font no longer decodes.
 
 ## Charset and editing
 
