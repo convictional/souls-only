@@ -155,12 +155,18 @@ firmware. The fonts are licensed under the OFL 1.1 (see Licensing).
 
 ## Flashing the keyboard
 
+<p align="center">
+  <img src="media/keychron-v1-max.png" width="640" alt="A Keychron V1 Max running the Souls Only cipher firmware, its backlight lit Souls Only Blue to show cipher mode is on">
+</p>
+
 The keyboard half runs on any QMK/VIA board (this build targets a Keychron V1
 Max). Its firmware is generated from the same source as the font, so the codes
 can never drift: `tools/make_qmk_table.py` writes `demo/qmk/cipher_table.h`,
 which drops into a QMK keymap next to `demo/qmk/keymap_cipher.c`. Once flashed,
-**Right Ctrl** toggles cipher mode on and off; off, it is an ordinary keyboard,
-and space, Enter, Backspace, and the arrows all behave normally.
+**Right Ctrl** toggles cipher mode on and off and recolors the backlight as the
+on-state indicator: **Souls Only Blue** while ciphering, plain white when off.
+Off, it is an ordinary keyboard, and space, Enter, Backspace, and the arrows all
+behave normally.
 
 The full hardware runbook (toolchain, keymap wiring, entering DFU, recovery) is
 in [`demo/BUILD.md`](demo/BUILD.md). It is genuinely fiddly the first time, so
@@ -287,44 +293,43 @@ bash scripts/fetch_base_font.sh        # if base/Jost-Regular.ttf is missing
 [`audio/`](audio/) is a parallel artwork: the same reveal, in sound, read with
 your ears instead of your eyes. A spoken message ships **already scrambled into
 noise** and reassembles into an intelligible voice only at a hidden point on the
-same 0 to 1000 dial the font's `REVL` axis uses. Where the font warps glyph
-outlines along `REVL`, the audio phase-scrambles the recording: an FFT keeps each
-frequency's amplitude but a seeded mask randomizes its phase, so the voice is
-genuinely destroyed rather than buried under added static. Rotating the phase back
-by the dial amount reconstructs it, but only where that amount matches the one
-baked into the asset offline.
+same 0 to 1000 dial the font's `REVL` axis uses.
 
-To keep the message from being found by signal analysis, the asset carries **ten
-stations** at different dial points, and every one is **real, universally-known
-speech**: nine nursery rhymes (Twinkle Twinkle, Old MacDonald, Hickory Dickory
-Dock, and so on) and the message. Tuning the dial works like a radio: static between
-stations, a voice surfacing as you pass one. Because all ten are genuine speech, a
-sweep that scores each dial position for "speech-likeness" peaks identically
-everywhere and cannot rank them: the only thing separating the message from the
-rhymes is **recognizing which words are new**, the one voice you don't already
-know by heart.
+<p align="center">
+  <img src="media/audio-demo.gif" width="480" alt="The audio demo: a tuning dial over an oscilloscope of static, above an animated build lane that runs from clean speech, through a phase scramble, to three channels layered into a single clip, to the message rebuilt at its hidden focal">
+</p>
 
-That defeats a statistics sweep, but not a speech-to-text model run over every
-station. So the message clip carries a second layer: a **targeted adversarial
-perturbation** tuned against Whisper-tiny (`audio/tools/adversarial/perturb.py`).
-A small change, still plainly intelligible to a human ear, steers the model's
-transcription to a *tenth* nursery rhyme ("Little Miss Muffet") it isn't otherwise
-saying. An attacker who downloads the asset, sweeps all ten focals, and transcribes
-each one gets ten distinct, ordinary rhymes; the real words ("this is a souls only
-audio message") appear in none of them. A human tuning to the message, primed by
-the words on screen, hears them plainly. It is the same human-perception gap the
-font leans on (top-down priming, you hear what you are set to hear), turned into
-the defense.
+Where the font warps glyph outlines along `REVL`, the audio phase-scrambles the
+recording: an FFT keeps each frequency's amplitude but a seeded mask randomizes
+its phase, so the voice is genuinely destroyed rather than buried under added
+static. Rotating the phase back by the dial amount reconstructs it, but only where
+that amount matches the one baked into the asset offline.
+
+The method is a code-division **overlap**. Three channels - the spoken message and
+two nursery-rhyme decoys (Twinkle Twinkle and Old MacDonald) - are each
+phase-scrambled at their own focal dial value and **summed into one clip the length
+of a single recording**. Tuning to a channel's focal rebuilds that voice while the
+other two stay a wash of noise; the short decoys loop so every channel plays the
+whole way through. Turning the dial is like a radio: noise everywhere, one voice
+surfacing as you pass its focal.
+
+That overlap is also what hides the message from machines. A speech-to-text model
+run at any focal hears the target voice buried under the other two and transcribes
+only gibberish, so no adversarial trick is needed - the two-voice floor masks the
+words on its own. The one thing that recovers the message is a **human primed by
+the words on screen**, picking the voice they were set to hear out of the murmur.
+It is the same human-perception gap the font leans on (top-down priming, you hear
+what you are set to hear), turned into the defense.
 
 The reveal is pushed one step further than the font's. The font's `REVL` value is a
 number in the shipped variable font; the audio's focal value is **not in the
 shipped code at all**; it lives only in the offline build tool, so reading the
 source does not hand it over. The honest limits: a single bounded dial can still be
-swept, and the adversarial layer is tuned to **Whisper-tiny specifically**: a
-different or larger transcriber, or a patient human who listens to all ten
-stations, can still pick out the message. It raises the cost of an automated attack
-and turns the task back into *listening*; it is not an unbreakable cipher. A
-statement device, scoped as such.
+swept, and the masking is not airtight - a larger transcriber, or a patient human
+who listens across the dial, can still pull the message out (Whisper-tiny gets only
+gibberish, but a few words can leak). It raises the cost of an automated attack and
+turns the task back into *listening*; it is not an unbreakable cipher. A statement
+device, scoped as such.
 
 See [`audio/README.md`](audio/README.md) to run and build it.
 

@@ -9,28 +9,23 @@ ships: the asset is phase-scrambled (its frequency content is intact but its
 phase is randomized, so the voice is genuinely destroyed into noise, not just
 buried under static). The running code reconstructs the voice only at one hidden
 dial position. The position is not stored in the shipped code as a value or a
-curve. It can be found by ear, or by a program that renders the audio and
-recognizes the words, but not by reading the code.
+curve. It can be found by ear, but a program that renders the audio and runs
+speech-to-text gets only gibberish.
 
-To keep the message from being found by signal analysis, the asset carries **ten
-stations** at different dial points, and every one is **real, universally-known
-speech**: nine nursery rhymes (Twinkle Twinkle, Old MacDonald, Hickory Dickory
-Dock, …) and the message. Because all ten stations are genuine speech, a sweep
-that scores each dial position for "speech-likeness" peaks identically everywhere
-and cannot rank them. Tuning works like a radio: static between stations, a voice
-surfacing as you pass one. The only thing that separates the message from the
-rhymes is recognizing which words are new — the one voice you do not already know
-by heart.
+The method is a code-division **overlap**. Three channels — the spoken message
+and two nursery-rhyme decoys (Twinkle Twinkle and Old MacDonald) — are each
+phase-scrambled at their own focal dial value and **summed into one clip the
+length of a single recording**. Descrambling at a channel's focal rebuilds that
+voice while the other two stay a wash of noise; the short decoys loop so every
+channel plays the whole way through. Tuning works like a radio: noise everywhere,
+one voice surfacing as you pass its focal.
 
-That defeats a statistics sweep, but not a speech-to-text model run over each
-station. So the message clip carries a second layer: a **targeted adversarial
-perturbation** tuned against Whisper-tiny (`tools/adversarial/perturb.py`). A
-small change — still plainly intelligible to a human ear — steers that model's
-transcription to a *tenth* nursery rhyme ("Little Miss Muffet"). An attacker who
-sweeps all ten focals and transcribes each gets ten distinct, ordinary rhymes; the
-real words appear in none of them. A human tuning to the message, primed by the
-words on screen, hears them plainly — the same top-down priming the font relies on,
-turned into the defense.
+That overlap is also the anti-machine layer. A speech-to-text model run at any
+focal hears the target voice buried under the other two and transcribes only
+gibberish — so no adversarial perturbation is needed; the two-voice noise floor
+masks the words on its own. The only thing that recovers the message is a human
+**primed by the words on screen**, picking the voice they were set to hear out of
+the murmur — the same top-down priming the font relies on, turned into the defense.
 
 This is a parallel artwork, not an accessibility remedy for the font, and not an
 unbreakable cipher. At the focal point the message is simply intelligible.
@@ -43,6 +38,8 @@ npm run dev
 ```
 
 Open the printed URL, click Play, and scrub the dial to find the clear point.
+There is also a 9:16 explainer at `/vertical-demo.html` (the source of the demo
+GIF in the root README).
 
 ## Test
 
@@ -51,37 +48,28 @@ npm test
 ```
 
 Unit tests cover the deterministic core (seeded RNG, the radix-2 FFT, the phase
-scramble and its cancellation, the engine dial-to-rotation mapping, per-station
-resolution and the tuned playback that follows the resolving station, the keyboard
-logic) and a guard that the focal value never appears in shipped code. The
-perceptual morph is verified by ear with the checklist below.
+scramble and its cancellation, the overlap sum and its per-channel descramble, the
+loop-to-fill helper, the engine dial-to-rotation mapping and tuned playback, the
+keyboard logic, and the asset-URL resolver) and a guard that the focal value never
+appears in shipped code. The perceptual reveal is verified by ear with the
+checklist below.
 
 ## Regenerating the asset
 
 The garbled asset is produced offline by `node tools/garble.mjs` (macOS; uses
-`say`). That tool is the only place the focal values live: it synthesizes the nine
-decoy rhymes in /tmp, scrambles each at its focal, embeds the pre-rendered message
-clip (`tools/adversarial/message_adv.wav`), writes `public/assets/message.wav`,
-and deletes the clean audio. Because `message_adv.wav` is committed, rebuilding
-the scrambled asset needs nothing more than `node tools/garble.mjs` and `say`.
+`say`). That tool is the only place the focal values live: it synthesizes the
+message and the two decoy rhymes in /tmp, loops the short decoys to fill the block,
+phase-scrambles each channel at its focal, sums them, writes
+`public/assets/message.wav`, and deletes the clean audio. It is self-contained —
+rebuilding the asset needs nothing more than `node tools/garble.mjs` and `say`.
 
-The message clip itself is the adversarially-perturbed message, built one-time by
-the offline tool below. Its optimization is not bit-reproducible, so the committed
-`message_adv.wav` is the canonical clip; you only need to re-run this to change the
-message or the disguise target:
+The block is `OVERLAP_BLOCK_LEN` (2^20 samples, ~47.5s at 22050 Hz) so it holds the
+long message; the decoys loop to the same length.
 
-```
-python3 -m venv tools/adversarial/.venv
-tools/adversarial/.venv/bin/pip install torch torchaudio openai-whisper soundfile numpy
-tools/adversarial/.venv/bin/python tools/adversarial/perturb.py   # -> tools/adversarial/message_adv.wav
-node tools/adversarial/descramble_all.mjs                         # verify: descramble each station
-tools/adversarial/.venv/bin/python tools/adversarial/verify.py    # transcribe each with whisper-tiny
-```
-
-The perturbation toolchain and `message_adv.wav` are committed so the build is
-reproducible — `message_adv.wav` is plainly intelligible by ear (it *is* the
-message), kept in the repo on purpose, not as a secret. Only the Python venv and
-the `message.clean.wav` / `verify_*.wav` scratch stay local (gitignored).
+> Legacy: `tools/adversarial/` holds an earlier defense — a perturbation tuned to
+> steer Whisper-tiny's transcription to "Little Miss Muffet" on a short message
+> clip. The overlap masks speech-to-text on its own, so that toolchain is **no
+> longer wired into the build**; it is kept as research.
 
 ## Keyboard and screen reader
 
@@ -96,66 +84,60 @@ Of the two media, the audio sibling is the one an unsighted person can actually
 decode. The font's reveal is purely visual; here the message arrives as sound. A
 screen reader announces the Play button, the labeled reveal dial, and the priming
 text on the page, and the dial is driven entirely from the keyboard — so a blind
-user can start playback and tune through the stations without sight. The decoding
-is done by their own hearing: they sweep the dial, hear a voice rise out of the
-static at each station, and pick out the one speaking words they do not already
-know by heart. The top-down priming a sighted reader gets from the on-screen text,
-the screen reader speaks aloud, so the blind listener is set to hear the message
-just the same.
+user can start playback and tune across the dial without sight. The decoding is
+done by their own hearing: they sweep the dial, hear a voice rise out of the
+static, and pick out the one speaking words they do not already know by heart. The
+top-down priming a sighted reader gets from the on-screen text, the screen reader
+speaks aloud, so the blind listener is set to hear the message just the same.
 
 One honest caveat, and it cuts against the anti-machine layer. A screen reader
 reads *text*; it does not transcribe arbitrary audio. The intended decode is by
 ear, and a blind person who listens hears the true words. But a user who instead
-pipes the audio through automatic speech-to-text or an AI description tool is fed
-the decoy — the adversarial perturbation that steers a transcriber to "Little
-Miss Muffet" cannot tell an assistive pipeline from an attacker's. The reveal is
-meant to be *heard*: that path is fully accessible, while leaning on machine
-transcription rather than one's own ears is precisely the path the design
-defeats.
+pipes the audio through automatic speech-to-text is fed only the noise-floor
+gibberish the overlap produces. The reveal is meant to be *heard*: that path is
+fully accessible, while leaning on machine transcription rather than one's own ears
+is precisely the path the design defeats.
 
 ## Listening checklist
 
 - At 0 the output is noise.
-- Sweeping the dial passes ten stations where a voice surfaces from the static.
-- Nine stations are nursery rhymes you recognize; exactly one is the message.
-- Moving away from any station in either direction dissolves back into noise.
+- Sweeping the dial passes three channels where a voice surfaces from the static.
+- Two channels are nursery rhymes you recognize; exactly one is the message.
+- At a channel the chosen voice rises *through* the wash of the other two, not over
+  silence — the overlap trades a clean reveal for a single short clip.
+- Moving away from a focal in either direction dissolves back into noise.
 - The real message is findable by ear but not at an end.
 
 ## How the hiding works
 
-A per-frequency phase mask is generated from a public seed. Offline, the asset is
-built as ten equal-length **blocks (stations)** concatenated in time, each a short
-phrase synthesized in the same voice, fit to one block and level-matched. Each
-block's spectrum has its phase rotated by its own `focal_amount * mask` and written
-back to the time domain: same magnitude spectrum, scrambled phase, so each block is
-noise. Which time-slot holds which phrase is shuffled, so the message's position is
-not obvious.
+A per-frequency phase mask is generated from a public seed. Offline, three
+equal-length channels are built — a long spoken message and two short rhymes
+looped to fill the block — each in the same voice and level-matched. Each channel's
+spectrum has its phase rotated by its own `focal_amount * mask`: same magnitude
+spectrum, scrambled phase, so each channel is noise. The three scrambled channels
+are **summed into one block** and the sum is peak-normalized.
 
-At runtime the engine descrambles every block by `-dial_amount * mask`, where the
-dial maps linearly to the amount, and plays whichever block resolves most strongly
-at the current dial (highest kurtosis). A block resolves only where `dial_amount`
-equals the `focal_amount` baked into it, so each station appears at its own dial
-point with static between. The focal amounts are not in the shipped code; they live
-only in `tools/garble.mjs`.
+At runtime the engine descrambles the block by `-dial_amount * mask`, where the
+dial maps linearly to the amount. At a channel's focal the rotation cancels and
+that voice reconstructs coherently, while the other two — rotated by a nonzero
+residual — stay scrambled and act as an additive noise floor. The focal amounts are
+not in the shipped code; they live only in `tools/garble.mjs`.
 
-The message block additionally carries the adversarial perturbation described
-above, so that a transcriber run on the resolved message reads it as a tenth rhyme.
+Summing N channels means the non-matching ones do not vanish; they remain noise of
+roughly `1/sqrt(N-1)` the target's level. That is the cost of packing every channel
+into one clip rather than concatenating them in time, and it is what masks the
+message from a transcriber.
 
 ## Limitations
 
 This raises the cost of an automated attack; it is not an unbreakable cipher.
 
 - **A bounded dial can be swept.** The reveal is one 0–1000 control, so a program
-  can render the output at every position. The stations are what make that sweep
+  can render the output at every position. The overlap is what makes that sweep
   unhelpful, not impossible.
-- **All-speech stations defeat statistics, not transcription alone.** Because every
-  station is real speech, no "speech-likeness" score can rank them. A solver must
-  run speech-to-text and read which words are coherent — and *that* is what the
-  adversarial layer targets.
-- **The adversarial layer is tuned to Whisper-tiny specifically.** A different or
-  larger transcriber, or a human-in-the-loop who simply listens to all ten
-  stations, can still recover the message. The perturbation defeats one named
-  model, not all listeners.
+- **The masking is not airtight.** Speech-to-text run at the focal gets gibberish,
+  but a few words can leak, and a larger or noise-robust transcriber could recover
+  more. The defense degrades a machine read; it does not guarantee zero.
 - **Anything a human can hear, an audio model can in principle hear too.** The
   point is intelligible by design, so a sufficiently capable listener — human or
   AI — finds it. The defense forces the attacker to actually listen rather than to
