@@ -75,6 +75,10 @@ emits the noise stream, and only this font renders it back into words.
 This is a craft and statement project, not a claim of unbreakable security.
 See Limitations in `font-cipher-brief.md`.
 
+<p align="center">
+  <img src="media/decoy-demo.gif" width="480" alt="The REVL dial loops between the true text and a decoy on each side: the same line reads as different real-but-wrong words at the trap settings, and as the truth only at one hidden point">
+</p>
+
 ## Try it (interactive demo)
 
 The repo ships an interactive page, [`demo/decoy.html`](demo/decoy.html), where
@@ -177,10 +181,6 @@ space character, and Return emits a real newline plus three invisible pad bytes
 so the stream stays four-aligned.
 
 ## The reveal (REVL axis)
-
-<p align="center">
-  <img src="media/decoy-demo.gif" width="300" alt="The REVL dial loops between the true text and a decoy on each side: the same line reads as different real-but-wrong words at the trap settings, and as the truth only at one hidden point">
-</p>
 
 Souls Only ships as a variable font with a custom `REVL` axis. Turning the dial
 does not simply scatter and unscatter the text; it lands on a series of
