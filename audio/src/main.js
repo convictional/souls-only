@@ -1,18 +1,21 @@
 import { RevealEngine } from './reveal-engine.js'
 import { nextReveal } from './keys.js'
-import { assetUrl } from './asset-url.js'
+import { assetUrl, assetBlockLen } from './asset-url.js'
 import { ASSET_RATE } from './constants.js'
 
 // Which asset to load: the shipped ten-station file by default, or ?asset=<name>
-// for an alternate (e.g. the overlap experiment, ?asset=overlap-3.wav).
+// for an alternate (e.g. the overlap experiment, ?asset=overlap-3.wav). The
+// overlap asset packs all stations into one longer block, so it needs a matching
+// block length for the engine to descramble correctly.
 const ASSET = assetUrl(location.search)
+const BLOCK = assetBlockLen(location.search)
 
 const toggle = document.getElementById('toggle')
 const slider = document.getElementById('revl')
 const valueLabel = document.getElementById('revlValue')
 
 const ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: ASSET_RATE })
-const engine = new RevealEngine(ctx)
+const engine = new RevealEngine(ctx, { blockLen: BLOCK })
 engine.connect(ctx.destination)
 
 let loaded = false

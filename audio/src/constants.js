@@ -8,3 +8,7 @@ export const ASSET_RATE = 22050
 export const BLOCK_LEN = 65536
 export const PHASE_SEED = 0x85ebca6b
 export const ALPHA_MAX = 10
+// Block length for the code-division overlap experiment (feat/overlap-stations):
+// one block holds all overlapped stations, so it must fit the longest clip. 2^20
+// samples is ~47.5s at ASSET_RATE (a power of two for the radix-2 FFT).
+export const OVERLAP_BLOCK_LEN = 1 << 20

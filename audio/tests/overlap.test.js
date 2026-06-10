@@ -4,7 +4,7 @@
 // clip. Descrambling at clip j's focal must recover clip j as the dominant
 // signal, while the other clips stay scrambled (additive noise).
 import { describe, it, expect } from 'vitest'
-import { buildOverlap } from '../tools/overlap.mjs'
+import { buildOverlap, tileToLength } from '../tools/overlap.mjs'
 import { buildPhaseMask, alphaForReveal, phaseTransform } from '../src/scramble.js'
 import { mulberry32 } from '../src/rng.js'
 
@@ -45,6 +45,24 @@ function corr(a, b) {
   for (let i = 0; i < a.length; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i] }
   return dot / (Math.sqrt(na * nb) || 1)
 }
+
+describe('tileToLength: loop a short clip to fill a longer block', () => {
+  it('repeats the source to exactly the target length', () => {
+    const out = tileToLength(Float32Array.from([1, 2, 3]), 7)
+    expect(out.length).toBe(7)
+    expect(Array.from(out)).toEqual([1, 2, 3, 1, 2, 3, 1])
+  })
+
+  it('truncates a source longer than the target', () => {
+    const out = tileToLength(Float32Array.from([1, 2, 3, 4, 5]), 3)
+    expect(Array.from(out)).toEqual([1, 2, 3])
+  })
+
+  it('returns silence for an empty source', () => {
+    const out = tileToLength(new Float32Array(0), 4)
+    expect(Array.from(out)).toEqual([0, 0, 0, 0])
+  })
+})
 
 describe('overlap: N phase-coded clips summed into one block', () => {
   const clips = FOCALS.map((_, i) => makeClip(1000 + i, i))

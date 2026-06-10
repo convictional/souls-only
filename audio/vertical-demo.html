@@ -224,6 +224,7 @@
 <script type="module">
   import { RevealEngine } from '/src/reveal-engine.js'
   import { nextReveal } from '/src/keys.js'
+  import { assetUrl, assetBlockLen } from '/src/asset-url.js'
   import { ASSET_RATE } from '/src/constants.js'
 
   // ?h=900 overrides the frame height (stays 9:16); ?guides shows the Loom crop outline
@@ -238,8 +239,10 @@
   else { fitFrame(); window.addEventListener('resize', fitFrame); }
 
   // ?asset=overlap-3.wav loads an alternate asset (e.g. the code-division overlap
-  // experiment); defaults to the shipped ten-station file. Basename only.
-  const ASSET = '/assets/' + (qp.get('asset') || 'message.wav').replace(/[^a-zA-Z0-9._-]/g, '');
+  // experiment); defaults to the shipped ten-station file. The overlap asset uses
+  // a longer block, so the engine needs a matching block length.
+  const ASSET = assetUrl(location.search);
+  const BLOCK = assetBlockLen(location.search);
   if (qp.has('guides')) {
     document.body.classList.add('guides');
     const fr = document.querySelector('.frame').getBoundingClientRect();
@@ -294,7 +297,7 @@
   const g = canvas.getContext('2d');
 
   const ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: ASSET_RATE });
-  const engine = new RevealEngine(ctx);
+  const engine = new RevealEngine(ctx, { blockLen: BLOCK });
   const analyser = ctx.createAnalyser();
   analyser.fftSize = 2048;
   engine.connect(analyser);

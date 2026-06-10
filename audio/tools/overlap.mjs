@@ -6,6 +6,15 @@
 // j exactly, while every other clip stays rotated and remains additive noise.
 import { phaseTransform, alphaForReveal } from '../src/scramble.js'
 
+// Loop (tile) a short clip to fill exactly n samples, truncating if it is longer.
+// Used so a brief nursery rhyme repeats to match the length of a long message.
+export function tileToLength(samples, n) {
+  const out = new Float32Array(n)
+  if (samples.length === 0) return out
+  for (let i = 0; i < n; i++) out[i] = samples[i % samples.length]
+  return out
+}
+
 // clips: array of equal-length real Float32Arrays. focals: matching dial values.
 // Returns one Float32Array of the same length as a single clip.
 export function buildOverlap(clips, focals, phi, axisMax, alphaMax) {
