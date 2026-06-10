@@ -14,7 +14,10 @@ DIGITS = "0123456789"
 SYMBOLS = "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"  # 32 ASCII symbols
 PRINTABLE = LOWER + UPPER + DIGITS + SYMBOLS    # 94
 SPACE = " "
-CHARSET = PRINTABLE + SPACE                      # 95 (space is encoded)
+# Space is NOT ciphered: it stays a literal space in the stream so the font
+# preserves word boundaries and wraps/selects like normal text anywhere it is
+# used. Only the 94 printable non-space characters are carried by the cipher.
+CHARSET = PRINTABLE                              # 94 (space passes through)
 
 # A reserved zero-width pad character (used only to pad a newline to 4 slots).
 # It is deliberately excluded from the code carrier alphabet so it never forms
@@ -42,15 +45,11 @@ def class_of(ch: str) -> str | None:
 
 
 def left_slot(ch: str) -> str:
-    if ch == SPACE:
-        return "SP_L"
     cls = class_of(ch)
     return f"cls_{cls}" if cls else f"L_{ch}"
 
 
 def right_slot(ch: str) -> str:
-    if ch == SPACE:
-        return "SP_R"
     return f"R_{ch}"
 
 

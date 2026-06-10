@@ -5,7 +5,8 @@
 //   * Any printable key (bare or shifted) emits its character's codes: a random
 //     left code then a random right code (homophones). Uppercase = Shift+letter,
 //     symbols = Shift+digit / punctuation keys.
-//   * Space emits the space character's 4-char code.
+//   * Space is not ciphered: KC_SPC types a literal space (kb_index returns -1),
+//     so word boundaries survive in the stream.
 //   * Enter emits a real newline plus KB_PAD_COUNT pad chars (stays 4-aligned).
 //   * Backspace sends 4 backspaces; Left/Right arrow send 4 moves (edit/navigate
 //     by whole logical characters).

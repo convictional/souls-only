@@ -23,10 +23,10 @@ def built_keys_path() -> str:
 
 @pytest.fixture(scope="session")
 def built_keys_vf_path(built_keys_path) -> str:
-    """Build the keyboard reveal (REVL) font once."""
+    """Build the decoy reveal (REVL) font once."""
     from fontbuild.build_keyboard import OUT_FONT, OUT_VF
-    from fontbuild.reveal import build_reveal
+    from fontbuild.decoy_reveal import build_decoy_reveal
 
-    build_reveal(aligned_path=OUT_FONT, out_vf=OUT_VF)
+    build_decoy_reveal(aligned_path=OUT_FONT, out_vf=OUT_VF)
     assert os.path.exists(OUT_VF)
     return OUT_VF

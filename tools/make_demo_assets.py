@@ -27,7 +27,7 @@ DST_VF = os.path.join(ROOT, "demo", "SoulsOnly-VF.ttf")
 
 
 def main() -> int:
-    chars = charset.PRINTABLE + " "  # include space
+    chars = charset.PRINTABLE  # space is not ciphered (stays a literal space)
     left = {ch: kb.left_codes(ch) for ch in chars}
     right = {ch: kb.right_codes(ch) for ch in chars}
 
