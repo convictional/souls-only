@@ -301,6 +301,13 @@ bash scripts/fetch_base_font.sh        # if base/Jost-Regular.ttf is missing
 ./.venv/bin/python -c "from cipher import keyboard as k; print(k.decode(k.encode('hello world')))"
 ```
 
+## Elsewhere
+
+I work and build at [Convictional](https://convictional.com), and write essays
+at [Philosophy of Work](https://philosophyofwork.substack.com) about how work is
+changing in the age of AI. This project is a small artifact of that same
+preoccupation.
+
 ## Licensing
 
 Dual-licensed:
