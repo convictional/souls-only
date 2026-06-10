@@ -10,6 +10,9 @@
 //   * Enter emits a real newline plus KB_PAD_COUNT pad chars (stays 4-aligned).
 //   * Backspace sends 4 backspaces; Left/Right arrow send 4 moves (edit/navigate
 //     by whole logical characters).
+//   * Held keys auto-repeat: ciphered characters and Backspace / Left / Right /
+//     Enter re-fire on a timer while held (the firmware suppresses the real key,
+//     so the host can't repeat it for us).
 //   * A re-entrancy guard means the keystrokes WE emit are not re-ciphered.
 //   * Keys pressed with Ctrl/Alt/GUI pass through. Cipher off = normal keyboard.
 
@@ -20,9 +23,53 @@ static bool cipher_on = false;
 static bool kb_emitting = false;   // re-entrancy guard
 static bool rng_seeded = false;
 
+// Auto-repeat. Because we suppress the real key and emit on our own, the host
+// never sees a held key and cannot repeat it for us. So we repeat ourselves:
+// after an initial delay, the most-recently-pressed handled key re-fires at a
+// fixed rate until it is released.
+enum cipher_act { ACT_NONE, ACT_CHAR, ACT_BSPC, ACT_LEFT, ACT_RIGHT, ACT_ENT };
+#define KB_REPEAT_DELAY_MS 300   // hold this long before repeat starts
+#define KB_REPEAT_RATE_MS   45   // then re-fire this often
+static uint8_t  held_act     = ACT_NONE;
+static int      held_idx     = -1;
+static uint16_t held_keycode = 0;
+static uint32_t held_since   = 0;   // when the key went down
+static uint32_t last_fire    = 0;   // when we last emitted for it
+
 static void emit_char(int idx) {
     send_string(kb_left[idx][rand() % KB_HOMOPHONES]);
     send_string(kb_right[idx][rand() % KB_HOMOPHONES]);
+}
+
+// One logical keypress for `act`, wrapped in the re-entrancy guard so the keys
+// we emit are not themselves re-ciphered. Used for both the initial press and
+// each auto-repeat.
+static void cipher_fire(uint8_t act, int idx) {
+    kb_emitting = true;
+    if (act == ACT_BSPC) {
+        // KEEP the user's mods so Shift+Backspace still selects-and-deletes.
+        for (int i = 0; i < 4; i++) tap_code(KC_BSPC);
+    } else if (act == ACT_LEFT) {
+        // Mods intact: bare Left moves one logical char; Shift+Left extends.
+        for (int i = 0; i < 4; i++) tap_code(KC_LEFT);
+    } else if (act == ACT_RIGHT) {
+        for (int i = 0; i < 4; i++) tap_code(KC_RGHT);
+    } else if (act == ACT_ENT) {
+        // Newline + pad: clear the held Shift so it cannot corrupt them.
+        uint8_t s = get_mods(), sw = get_weak_mods();
+        clear_mods(); clear_weak_mods();
+        send_string("\n");
+        for (int i = 0; i < KB_PAD_COUNT; i++) send_string(KB_PAD);
+        set_mods(s); set_weak_mods(sw);
+    } else if (act == ACT_CHAR) {
+        // Clear the held Shift (used to type a capital or symbol) so it cannot
+        // corrupt the emitted ASCII codes, then restore it.
+        uint8_t s = get_mods(), sw = get_weak_mods();
+        clear_mods(); clear_weak_mods();
+        emit_char(idx);
+        set_mods(s); set_weak_mods(sw);
+    }
+    kb_emitting = false;
 }
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
@@ -32,52 +79,48 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         if (record->event.pressed) cipher_on = !cipher_on;
         return false;
     }
-    if (!cipher_on || !record->event.pressed) return true;
+
+    // Releasing the key we are repeating stops the repeat.
+    if (!record->event.pressed) {
+        if (keycode == held_keycode) held_act = ACT_NONE;
+        return true;
+    }
+    if (!cipher_on) return true;
 
     uint8_t mods = get_mods() | get_weak_mods();
     bool shifted = (mods & MOD_MASK_SHIFT) != 0;
     if (mods & ~MOD_MASK_SHIFT) return true;   // Ctrl/Alt/GUI shortcuts pass through
 
-    bool edit = (keycode == KC_BSPC || keycode == KC_LEFT ||
-                 keycode == KC_RIGHT || keycode == KC_ENT);
+    uint8_t act = ACT_NONE;
     int idx = -1;
-    if (!edit) {
+    if (keycode == KC_BSPC)       act = ACT_BSPC;
+    else if (keycode == KC_LEFT)  act = ACT_LEFT;
+    else if (keycode == KC_RIGHT) act = ACT_RIGHT;
+    else if (keycode == KC_ENT)   act = ACT_ENT;
+    else {
         idx = kb_index(keycode, shifted);
         if (idx < 0) return true;              // not a ciphered key -> normal
+        act = ACT_CHAR;
     }
 
     if (!rng_seeded) { srand(timer_read32()); rng_seeded = true; }
 
-    kb_emitting = true;
-    if (keycode == KC_BSPC) {
-        // Navigation/edit: KEEP the user's mods so Shift+Backspace and (below)
-        // Shift+Arrow behave normally. We do not emit characters here, so a held
-        // Shift cannot corrupt anything.
-        for (int i = 0; i < 4; i++) tap_code(KC_BSPC);
-    } else if (keycode == KC_LEFT) {
-        // Mods intact: bare Left moves one logical character (4 stream chars);
-        // Shift+Left EXTENDS the selection by one logical character.
-        for (int i = 0; i < 4; i++) tap_code(KC_LEFT);
-    } else if (keycode == KC_RIGHT) {
-        for (int i = 0; i < 4; i++) tap_code(KC_RGHT);
-    } else if (keycode == KC_ENT) {
-        // Emits characters (newline + pad): clear the held Shift so it cannot
-        // corrupt them, then restore.
-        uint8_t s = get_mods(), sw = get_weak_mods();
-        clear_mods(); clear_weak_mods();
-        send_string("\n");
-        for (int i = 0; i < KB_PAD_COUNT; i++) send_string(KB_PAD);
-        set_mods(s); set_weak_mods(sw);
-    } else {
-        // Emits the cipher codes: clear the held Shift (used to type a capital or
-        // symbol) so it cannot corrupt the emitted ASCII codes, then restore.
-        uint8_t s = get_mods(), sw = get_weak_mods();
-        clear_mods(); clear_weak_mods();
-        emit_char(idx);
-        set_mods(s); set_weak_mods(sw);
-    }
-    kb_emitting = false;
+    cipher_fire(act, idx);
+    // Arm auto-repeat for this key until it is released.
+    held_act = act; held_idx = idx; held_keycode = keycode;
+    held_since = timer_read32(); last_fire = held_since;
     return false;              // we handled it; suppress the original key
+}
+
+// Drive auto-repeat: once a handled key has been held past the initial delay,
+// re-fire it every KB_REPEAT_RATE_MS until it is released.
+void housekeeping_task_user(void) {
+    if (held_act == ACT_NONE) return;
+    if (!cipher_on) { held_act = ACT_NONE; return; }
+    if (timer_elapsed32(held_since) < KB_REPEAT_DELAY_MS) return;
+    if (timer_elapsed32(last_fire) < KB_REPEAT_RATE_MS) return;
+    cipher_fire(held_act, held_idx);
+    last_fire = timer_read32();
 }
 
 #ifdef RGB_MATRIX_ENABLE
