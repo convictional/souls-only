@@ -156,7 +156,7 @@ firmware. The fonts are licensed under the OFL 1.1 (see Licensing).
 ## Flashing the keyboard
 
 <p align="center">
-  <img src="media/keychron-v1-max.png" width="640" alt="A Keychron V1 Max running the Souls Only cipher firmware, its backlight lit Souls Only Blue to show cipher mode is on">
+  <img src="media/keychron-v1-max.png" width="640" alt="A Keychron V1 Max, the QMK keyboard this build targets for the Souls Only cipher firmware">
 </p>
 
 The keyboard half runs on any QMK/VIA board (this build targets a Keychron V1
